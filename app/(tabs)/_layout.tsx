@@ -1,5 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'; // DODANO
+import { auth } from '@/hooks/firebaseConfig'; // Upewnij się, że ścieżka jest poprawna
 import { Tabs, usePathname } from 'expo-router'; // DODANO: usePathname
+import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 
 
@@ -11,20 +12,25 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-
   const pathname = usePathname(); 
   
   const [isLogged, setIsLogged] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    const checkLoginStatus = async () => {
-      const user = await AsyncStorage.getItem('currentUser');
-      setIsLogged(!!user);
+    // Firebase Auth automatycznie wie, czy użytkownik jest zalogowany (nawet po restarcie aplikacji!)
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsLogged(true); // Zalogowany
+      } else {
+        setIsLogged(false); // Wylogowany
+      }
       setIsChecking(false);
-    };
-    checkLoginStatus();
-  }, [pathname]);
+    });
+
+    // Zatrzymujemy nasłuchiwanie, gdy komponent zostanie zniszczony
+    return unsubscribe;
+  }, []);
 
 
 

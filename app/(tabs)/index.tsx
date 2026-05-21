@@ -28,7 +28,7 @@ export default function index() {
         );
     }
 
-    //Wyświetlanie listy filmów
+    //Wyświetlanie listy filmów i seriali
     return (
         <ScrollView style={globalStyles.container} contentContainerStyle={{ paddingBottom: 30 }}>
             <View style={globalStyles.header}>
@@ -46,7 +46,7 @@ export default function index() {
                     <TouchableOpacity style={globalStyles.filmBanner}
                         onPress={() => router.push({
                                 pathname: "/FilmDetail",
-                                params: {id: item.id, title: item.title, release_date: item.release_date, overview: item.overview, backdrop: item.backdrop_path, gatunki: item.gatunki }
+                                params: {id: item.id, title: item.title, release_date: item.release_date, overview: item.overview, backdrop: item.backdrop_path, gatunki: item.gatunki, type: item.type }
                             })}>
                             <Image source={{ uri: 'https://image.tmdb.org/t/p/w500/' + item.poster_path }} style={globalStyles.filmImage} />
                     </TouchableOpacity>
@@ -64,7 +64,7 @@ export default function index() {
                     <TouchableOpacity style={globalStyles.filmBanner}
                         onPress={() => router.push({
                                 pathname: "/FilmDetail",
-                                params: {id: item.id, title: item.name, release_date: item.first_air_date, overview: item.overview, backdrop: item.backdrop_path, gatunki: item.gatunki  }
+                                params: {id: item.id, title: item.name, release_date: item.first_air_date, overview: item.overview, backdrop: item.backdrop_path, gatunki: item.gatunki, type: item.type  }
                             })}>
                             <Image source={{ uri: 'https://image.tmdb.org/t/p/w500/' + item.poster_path }} style={globalStyles.filmImage} />
                     </TouchableOpacity>

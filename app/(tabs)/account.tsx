@@ -1,65 +1,66 @@
-import { globalStyles } from '@/constants/theme';
-import { getUserByUsername } from '@/hooks/Database';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '@/hooks/firebaseConfig';
 import { router } from 'expo-router';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function AccountScreen() {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
     const handleLogin = async () => {
-
-        try {
-            const user = await getUserByUsername(username);
-            
-            if (user) {
-                if (user.haslo === password) { // 'haslo', bo tak nazwaliśmy to w SQLite
-                    await AsyncStorage.setItem('currentUser', username.toLowerCase()); // Zachowujemy stan sesji
-                    setPassword('');
-                    router.replace('/Profile');
-                } else {
-                    Alert.alert('Błąd', 'Nieprawidłowe hasło!');
-                }
-            } else {
-                Alert.alert('Błąd', 'Nie znaleziono konta!');
-            }
-        } catch (error) {
-            console.error(error);
+        if (email === '' || password === '') {
+            Alert.alert('Błąd', 'Wypełnij wszystkie pola!');
+            return;
         }
 
+        // Weryfikacja logowania
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            
+            setEmail('');
+            setPassword('');
+            router.replace('/Profile');
+            
+        } catch (error: any) {
+            console.error(error);
+            Alert.alert('Błąd', 'Nieprawidłowy e-mail lub hasło!');
+        }
     };
 
     return(
-        <View style={globalStyles.container}>
-
-            <View style={globalStyles.header}>
-                <Text style={globalStyles.headerText}>Zaloguj się</Text>
+        <View style={styles.Container}>
+            <View style={styles.Header}>
+                <Text style={styles.HeaderText}>Zaloguj się</Text>
             </View>
 
-            <View style={styles.LoginContent}>
+            <View style={styles.Login}>
                 <TextInput 
-                    style={globalStyles.input} 
-                    onChangeText={setUsername} 
-                    value={username} 
-                    placeholder="Nazwa użytkownika" 
-                    autoCapitalize="none" />
+                    style={styles.input} 
+                    onChangeText={setEmail} 
+                    value={email} 
+                    placeholder="Adres e-mail" 
+                    placeholderTextColor="#999" 
+                    autoCapitalize="none" 
+                    keyboardType="email-address"
+                />
                 <TextInput 
-                    style={globalStyles.input} 
+                    style={styles.input} 
                     secureTextEntry={true} 
                     onChangeText={setPassword} 
                     value={password} 
-                    placeholder="Hasło" />
+                    placeholder="Hasło" 
+                    placeholderTextColor="#999" 
+                />
             
-                <TouchableOpacity style={globalStyles.button} onPress={handleLogin}>
-                    <Text style={globalStyles.buttonText}>Zaloguj się</Text>
+                <TouchableOpacity style={styles.button} onPress={handleLogin}>
+                    <Text style={styles.buttonText}>Zaloguj się</Text>
                 </TouchableOpacity>
 
                 <Text style={styles.RegisterText}>Nie posiadasz konta?</Text>
 
-                <TouchableOpacity style={globalStyles.button} onPress={() => router.push('/Register')}>
-                    <Text style={globalStyles.buttonText}>Zarejestruj konto</Text>
+                <TouchableOpacity style={styles.button} onPress={() => router.push('/Register')}>
+                    <Text style={styles.buttonText}>Zarejestruj konto</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -67,15 +68,12 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
-    LoginContent: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    RegisterText: {
-        fontSize: 16,
-        color: 'white',
-        margin: 20,
-    },
+    Container:{ flex: 1, backgroundColor: '#27282e' },
+    Header:{ width: '100%', height: 100, backgroundColor: '#121212' },
+    HeaderText: { fontWeight: 'bold', marginTop: 55, marginLeft: 20, fontSize: 24, color: 'white' },
+    Login: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+    input: { width:'100%', height: 50, backgroundColor: 'white', borderRadius: 5, paddingHorizontal: 15, marginBottom: 15, fontSize: 16 },
+    RegisterText: { fontSize: 16, color: 'white', margin: 20 },
+    button: { width:'100%', backgroundColor: '#2c40b4', paddingVertical: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },
+    buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
 });

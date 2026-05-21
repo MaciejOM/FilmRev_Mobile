@@ -14,18 +14,19 @@ export const Fonts = Platform.select({
   web: { sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", serif: "Georgia, 'Times New Roman', serif", rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif", mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" },
 });
 
+// Kolory aplikacji
 export const AppColors = {
     background: '#27282e', 
     headerBackground: '#121212',
-    primary: '#b8005c', 
-    buttonPrimary: '#2c40b4',
-    buttonDanger: '#e43057',
+    primary: '#a83350', 
+    buttonPrimary: '#a83350',
+    buttonDanger: '#cc002c',
     textWhite: '#ffffff',
     textGray: '#aaaaaa',
     inputBackground: '#ffffff',
 };
 
-// --- GLOBALNE STYLE ---
+// Stylizacja globalna dla wszystkich ekranów (Jeśli elementy się pokrywają)
 export const globalStyles = StyleSheet.create({
     container: {
         flex: 1,
@@ -37,7 +38,6 @@ export const globalStyles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    // Styl dla ekranów takich jak Logowanie i Rejestracja
     authContainer: {
         flex: 1,
         justifyContent: 'center',

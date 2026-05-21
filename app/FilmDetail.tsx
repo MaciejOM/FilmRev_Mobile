@@ -1,18 +1,20 @@
 import { AppColors, globalStyles } from '@/constants/theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Alert, Image, ImageBackground, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { addReview, deleteReview, getReviewsForFilm } from '@/hooks/Database';
+import { auth, db } from '@/hooks/firebaseConfig';
+import { addFirebaseReview, deleteFirebaseReview, getFirebaseReviewsForFilm } from '@/hooks/firebaseDatabase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function FilmDetail() {
     const params = useLocalSearchParams();
     const router = useRouter();
     
-    const { id, title, release_date, overview, backdrop, gatunki } = params;
+    // Zbieramy parametry - dodaliśmy opcjonalny 'type', by odróżnić filmy od seriali
+    const { id, title, release_date, overview, backdrop, gatunki, type } = params;
     const tmdbId = Number(id); 
 
     const [currentUser, setCurrentUser] = useState<string | null>(null);
@@ -22,11 +24,12 @@ export default function FilmDetail() {
     const [comment, setComment] = useState('');
 
     const loadData = async () => {
-        const user = await AsyncStorage.getItem('currentUser');
-        setCurrentUser(user);
+        const userAuth = auth.currentUser;
+        setCurrentUser(userAuth ? userAuth.uid : null);
 
         if (tmdbId) {
-            const fetchedReviews = await getReviewsForFilm(tmdbId);
+            const documentId = `${type || 'movie'}_${tmdbId}`;
+            const fetchedReviews = await getFirebaseReviewsForFilm(documentId);
             setReviews(fetchedReviews);
         }
     };
@@ -37,9 +40,11 @@ export default function FilmDetail() {
         }, [tmdbId])
     );
 
-    //Dodawanie Recenzji. Sprawdzanie poprawności formularza
+    // Dodawanie Recenzji
     const handleSubmitReview = async () => {
-        if (!currentUser) {
+        const userAuth = auth.currentUser;
+        
+        if (!userAuth) {
             Alert.alert('Błąd', 'Musisz być zalogowany, aby dodać recenzję.');
             return;
         }
@@ -52,19 +57,38 @@ export default function FilmDetail() {
             return;
         }
 
-        const result = await addReview(tmdbId, currentUser, rating, comment);
-        
-        if (result.success) {
-            Alert.alert('Sukces', 'Recenzja została zapisana!');
-            setComment('');
-            loadData(); 
-        } else {
-            Alert.alert('Błąd', 'Nie udało się dodać recenzji.');
+        try {
+            const userDocRef = doc(db, 'users', userAuth.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            const userData = userDocSnap.data();
+
+            const documentId = `${type || 'movie'}_${tmdbId}`;
+
+            const result = await addFirebaseReview(
+                documentId, 
+                userAuth.uid, 
+                userData?.nazwa_uzytkownika || 'Użytkownik', 
+                userData?.avatar || null, 
+                rating, 
+                comment
+            );
+            
+            if (result.success) {
+                Alert.alert('Sukces', 'Recenzja została zapisana!');
+                setComment('');
+                setRating(0);
+                loadData(); 
+            } else {
+                Alert.alert('Błąd', 'Nie udało się dodać recenzji.');
+            }
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Błąd', 'Wystąpił problem z połączeniem.');
         }
     };
 
     // Usuwanie Recenzji
-    const handleDeleteReview = (reviewId: number) => {
+    const handleDeleteReview = (reviewId: string) => {
         Alert.alert(
             "Usuń recenzję",
             "Czy na pewno chcesz usunąć swoją recenzję?",
@@ -74,10 +98,10 @@ export default function FilmDetail() {
                     text: "Usuń", 
                     style: "destructive", 
                     onPress: async () => {
-                        const result = await deleteReview(reviewId);
+                        const result = await deleteFirebaseReview(reviewId);
                         if (result.success) {
                             Alert.alert('Sukces', 'Recenzja została usunięta.');
-                            loadData(); // Odświeżamy listę, żeby recenzja natychmiast zniknęła
+                            loadData();
                         } else {
                             Alert.alert('Błąd', 'Wystąpił problem z usunięciem recenzji.');
                         }
@@ -101,7 +125,7 @@ export default function FilmDetail() {
         return 'opinii';
     };
 
-    //Wyświetlanie gwiazdek przy ocenie
+    // Wyświetlanie gwiazdek przy ocenie
     const renderStars = () => {
         return (
             <View style={styles.starsContainer}>
@@ -213,7 +237,7 @@ export default function FilmDetail() {
                             
                             <Text style={styles.reviewComment}>{rev.tresc}</Text>
                             
-                            {currentUser && currentUser.toLowerCase() === rev.nazwa_uzytkownika.toLowerCase() && (
+                            {currentUser && currentUser === rev.userId && (
                                 <TouchableOpacity 
                                     style={styles.deleteButton} 
                                     onPress={() => handleDeleteReview(rev.id)}
