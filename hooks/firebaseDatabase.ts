@@ -1,5 +1,5 @@
 import { db } from '@/hooks/firebaseConfig';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 
 // Synchronizacja filmów i seriali z bazą danych
 export const syncMediaToFirestore = async (mediaArray: any[], type: 'movie' | 'tv', genresMap: any) => {
@@ -72,7 +72,8 @@ export const addFirebaseReview = async (
     username: string, 
     avatar: string | null, 
     ocena: number, 
-    tresc: string
+    tresc: string,
+    tags: string[] = []
 ) => {
     try {
         await addDoc(collection(db, 'reviews'), {
@@ -82,6 +83,7 @@ export const addFirebaseReview = async (
             avatar: avatar,
             ocena: ocena,
             tresc: tresc,
+            tags: tags,
             createdAt: serverTimestamp()
         });
 
@@ -97,7 +99,6 @@ export const addFirebaseReview = async (
 // Pobieranie recenzji dla danej produkcji
 export const getFirebaseReviewsForFilm = async (movieId: string) => {
     try {
-        // Pobieramy recenzje tylko dla tego konkretnego filmu
         const q = query(
             collection(db, 'reviews'),
             where('movieId', '==', movieId)
@@ -142,6 +143,34 @@ export const deleteFirebaseReview = async (reviewId: string) => {
     }
 };
 
+// Edytowanie recenzji
+export const updateFirebaseReview = async (
+    reviewId: string,
+    movieId: string,
+    ocena: number,
+    tresc: string,
+    tags: string[]
+) => {
+    try {
+        const reviewRef = doc(db, 'reviews', reviewId);
+        
+        await updateDoc(reviewRef, {
+            ocena: ocena,
+            tresc: tresc,
+            tags: tags,
+            isEdited: true,
+            updatedAt: serverTimestamp() 
+        });
+
+        await updateMovieAverageRating(movieId);
+
+        return { success: true };
+    } catch (error) {
+        console.error("Błąd edycji recenzji w Firestore:", error);
+        return { success: false, error };
+    }
+};
+
 // Aktualizowanie średniej ocen dla danej produkcji
 export const updateMovieAverageRating = async (movieId: string) => {
     try {
@@ -169,5 +198,34 @@ export const updateMovieAverageRating = async (movieId: string) => {
         console.log(`Zaktualizowano średnią ocen dla ${movieId} na: ${newAverage} (Liczba opinii: ${reviewsCount})`);
     } catch (error) {
         console.error("Błąd podczas aktualizacji średniej ocen filmu:", error);
+    }
+};
+
+// like pod recenzjami
+export const toggleFirebaseReviewLike = async (reviewId: string, userId: string) => {
+    try {
+        const reviewRef = doc(db, 'reviews', reviewId);
+        const reviewSnap = await getDoc(reviewRef);
+
+        if (reviewSnap.exists()) {
+            const data = reviewSnap.data();
+            const likes = data.likes || [];
+            const hasLiked = likes.includes(userId);
+
+            if (hasLiked) {
+                await updateDoc(reviewRef, {
+                    likes: arrayRemove(userId)
+                });
+            } else {
+                await updateDoc(reviewRef, {
+                    likes: arrayUnion(userId)
+                });
+            }
+            return { success: true };
+        }
+        return { success: false, error: "Nie znaleziono recenzji" };
+    } catch (error) {
+        console.error("Błąd podczas przełączania polubienia:", error);
+        return { success: false, error };
     }
 };

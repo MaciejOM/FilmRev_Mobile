@@ -4,7 +4,6 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// IMPORTY FIREBASE
 import { auth, db } from '@/hooks/firebaseConfig';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -105,7 +104,10 @@ export default function ProfileScreen() {
     return (
         <View style={globalStyles.container}>
             <View style={globalStyles.header}>
-                <Text style={globalStyles.headerText}>Twój profil</Text>
+                <Text style={globalStyles.headerText}>{user.nazwa_uzytkownika}</Text>
+                <TouchableOpacity style={[globalStyles.buttonDanger, {width: '30%', marginTop: 30}]} onPress={handleLogout}>
+                    <Text style={globalStyles.buttonText}>Wyloguj się</Text>
+                </TouchableOpacity>
             </View>
                  
             <View style={styles.loginInfo}>
@@ -118,17 +120,10 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
                 <Text style={styles.editAvatarText}>Zmień zdjęcie</Text>
 
-                <Text style={styles.usernameText}>{user.nazwa_uzytkownika}</Text>
-
-                <Text style={styles.label}>Adres e-mail:</Text>
-                <Text style={styles.value}>{user.email}</Text>
-
                 <Text style={styles.label}>Data dołączenia:</Text>
                 <Text style={styles.value}>{user.data_dolaczenia}</Text>
 
-                <TouchableOpacity style={[globalStyles.buttonDanger, {width: '50%', marginTop: 30}]} onPress={handleLogout}>
-                    <Text style={globalStyles.buttonText}>Wyloguj się</Text>
-                </TouchableOpacity>
+                
             </View>
         </View>
     );
@@ -140,7 +135,6 @@ const styles = StyleSheet.create({
     avatarImage: { width: '100%', height: '100%' },
     avatarPlaceholderText: { fontSize: 40, color: AppColors.textGray },
     editAvatarText: { color: AppColors.textGray, fontSize: 12, marginBottom: 20, textDecorationLine: 'underline' },
-    usernameText: { fontSize: 26, color: 'white', fontWeight: 'bold', marginBottom: 20 },
     label: { color: AppColors.textGray, fontSize: 14, marginTop: 10 },
     value: { color: 'white', fontSize: 18, fontWeight: '500', marginBottom: 10 },
 });

@@ -26,7 +26,7 @@ export const AppColors = {
     inputBackground: '#ffffff',
 };
 
-// Stylizacja globalna dla wszystkich ekranów (Jeśli elementy się pokrywają)
+// Stylizacja globalna
 export const globalStyles = StyleSheet.create({
     container: {
         flex: 1,
@@ -53,6 +53,12 @@ export const globalStyles = StyleSheet.create({
     headerText: {
         fontWeight: 'bold',
         marginLeft: 20,
+        fontSize: 24,
+        color: AppColors.textWhite,
+    },
+    headerText2: {
+        fontWeight: 'bold',
+        marginLeft: 80,
         fontSize: 24,
         color: AppColors.textWhite,
     },
