@@ -1,17 +1,18 @@
 {
   "expo": {
-    "name": "FilmRev_Mobile",
-    "slug": "FilmRev_Mobile",
+    "name": "FilmRev",
+    "slug": "FilmRev",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "filmrevmobile",
+    "scheme": "filmrev",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "backgroundColor": "#27282e",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -19,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.maciejom.FilmRev"
     },
     "web": {
       "output": "static",
@@ -39,11 +41,17 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7729b738-b626-4da1-b3e7-cac6fb03dd70"
+      }
     }
   }
 }

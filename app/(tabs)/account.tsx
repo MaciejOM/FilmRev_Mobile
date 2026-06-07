@@ -1,79 +1,297 @@
-import { auth } from '@/hooks/firebaseConfig';
-import { router } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AppColors } from "@/constants/theme";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import {
+  GoogleAuthProvider,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+
+import { auth } from "@/hooks/firebaseConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function AccountScreen() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-    const handleLogin = async () => {
-        if (email === '' || password === '') {
-            Alert.alert('Błąd', 'Wypełnij wszystkie pola!');
-            return;
-        }
+  // Logowanie google
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+  });
 
-        // Weryfikacja logowania
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-            
-            setEmail('');
-            setPassword('');
-            router.replace('/Profile');
-            
-        } catch (error: any) {
-            console.error(error);
-            Alert.alert('Błąd', 'Nieprawidłowy e-mail lub hasło!');
-        }
+  // Logowanie przez konto google
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+
+      setIsSubmitting(true);
+      signInWithCredential(auth, credential)
+        .then(() => {
+          router.replace("/Profile");
+        })
+        .catch((error) => {
+          console.error("Błąd logowania Google:", error);
+          Alert.alert("Błąd", "Nie udało się zalogować przez konto Google.");
+        })
+        .finally(() => {
+          setIsSubmitting(false);
+        });
+    }
+  }, [response]);
+
+  // Zapisanie e-maila w polu, jeśli użytkownik wybrał opcje "Zapamiętaj mnie"
+  useEffect(() => {
+    const loadSavedEmail = async () => {
+      const savedEmail = await AsyncStorage.getItem("savedEmail");
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
     };
+    loadSavedEmail();
+  }, []);
 
-    return(
-        <View style={styles.Container}>
-            <View style={styles.Header}>
-                <Text style={styles.HeaderText}>Zaloguj się</Text>
-            </View>
+  // Logowanie standardowe
+  const handleLogin = async () => {
+    if (email === "" || password === "") {
+      Alert.alert("Błąd", "Wypełnij wszystkie pola!");
+      return;
+    }
 
-            <View style={styles.Login}>
-                <TextInput 
-                    style={styles.input} 
-                    onChangeText={setEmail} 
-                    value={email} 
-                    placeholder="Adres e-mail" 
-                    placeholderTextColor="#999" 
-                    autoCapitalize="none" 
-                    keyboardType="email-address"
-                />
-                <TextInput 
-                    style={styles.input} 
-                    secureTextEntry={true} 
-                    onChangeText={setPassword} 
-                    value={password} 
-                    placeholder="Hasło" 
-                    placeholderTextColor="#999" 
-                />
-            
-                <TouchableOpacity style={styles.button} onPress={handleLogin}>
-                    <Text style={styles.buttonText}>Zaloguj się</Text>
-                </TouchableOpacity>
+    setIsSubmitting(true);
 
-                <Text style={styles.RegisterText}>Nie posiadasz konta?</Text>
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      if (rememberMe) {
+        await AsyncStorage.setItem("savedEmail", email);
+      } else {
+        await AsyncStorage.removeItem("savedEmail");
+      }
+      setPassword("");
+      router.replace("/Profile");
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert("Błąd", "Nieprawidłowy e-mail lub hasło!");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-                <TouchableOpacity style={styles.button} onPress={() => router.push('/Register')}>
-                    <Text style={styles.buttonText}>Zarejestruj konto</Text>
-                </TouchableOpacity>
-            </View>
+  return (
+    <View style={styles.Container}>
+      <View style={styles.Header}>
+        <Text style={styles.HeaderText}>Zaloguj się</Text>
+      </View>
+
+      <View style={styles.Login}>
+        <TextInput
+          style={styles.input}
+          onChangeText={setEmail}
+          value={email}
+          placeholder="Adres e-mail"
+          placeholderTextColor="#999"
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            secureTextEntry={!showPassword}
+            onChangeText={setPassword}
+            value={password}
+            placeholder="Hasło"
+            placeholderTextColor="#999"
+          />
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={styles.eyeIcon}
+          >
+            <MaterialIcons
+              name={showPassword ? "visibility" : "visibility-off"}
+              size={24}
+              color="#999"
+            />
+          </TouchableOpacity>
         </View>
-    );
+
+        <View style={styles.optionsRow}>
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => setRememberMe(!rememberMe)}
+          >
+            <View
+              style={[styles.checkbox, rememberMe && styles.checkboxChecked]}
+            >
+              {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.rememberText}>Zapamiętaj mnie</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.push("/resetPassword")}>
+            <Text style={styles.forgotPasswordText}>Zapomniałeś hasła?</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Standardowe logowanie */}
+        <TouchableOpacity
+          style={[styles.button, isSubmitting && { opacity: 0.7 }]}
+          onPress={handleLogin}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.buttonText}>
+            {isSubmitting ? "Logowanie..." : "Zaloguj się"}
+          </Text>
+        </TouchableOpacity>
+
+        {/* NOWOŚĆ: Przycisk logowania przez Google */}
+        <TouchableOpacity
+          style={[styles.buttonGoogle, isSubmitting && { opacity: 0.7 }]}
+          onPress={() => promptAsync()}
+          disabled={!request || isSubmitting}
+        >
+          <MaterialIcons
+            name="login"
+            size={20}
+            color="white"
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.buttonText}>Zaloguj przez Google</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.RegisterText}>Nie posiadasz konta?</Text>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => router.push("/Register")}
+        >
+          <Text style={styles.buttonText}>Zarejestruj konto</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    Container:{ flex: 1, backgroundColor: '#27282e' },
-    Header:{ width: '100%', height: 100, backgroundColor: '#121212' },
-    HeaderText: { fontWeight: 'bold', marginTop: 55, marginLeft: 20, fontSize: 24, color: 'white' },
-    Login: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
-    input: { width:'100%', height: 50, backgroundColor: 'white', borderRadius: 5, paddingHorizontal: 15, marginBottom: 15, fontSize: 16 },
-    RegisterText: { fontSize: 16, color: 'white', margin: 20 },
-    button: { width:'100%', backgroundColor: '#2c40b4', paddingVertical: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },
-    buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  Container: { flex: 1, backgroundColor: "#27282e" },
+  Header: { width: "100%", height: 100, backgroundColor: "#121212" },
+  HeaderText: {
+    fontWeight: "bold",
+    marginTop: 55,
+    marginLeft: 20,
+    fontSize: 24,
+    color: "white",
+  },
+  Login: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  input: {
+    width: "100%",
+    height: 50,
+    backgroundColor: "white",
+    borderRadius: 5,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  RegisterText: { fontSize: 16, color: "white", margin: 20 },
+  button: {
+    width: "100%",
+    backgroundColor: "#a83350",
+    paddingVertical: 15,
+    borderRadius: 5,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  // Styl dla przycisku Google
+  buttonGoogle: {
+    flexDirection: "row",
+    width: "100%",
+    backgroundColor: "#4285F4", // Oficjalny kolor Google
+    paddingVertical: 15,
+    borderRadius: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 15,
+  },
+  buttonText: { color: "white", fontSize: 18, fontWeight: "bold" },
+  optionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 20,
+    paddingHorizontal: 5,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: AppColors.primary,
+    borderRadius: 4,
+    marginRight: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: AppColors.primary,
+  },
+  checkmark: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  rememberText: {
+    color: "#ccc",
+    fontSize: 14,
+  },
+  forgotPasswordText: {
+    color: AppColors.primary,
+    fontSize: 14,
+    fontWeight: "bold",
+    textDecorationLine: "underline",
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 5,
+    marginBottom: 15,
+    width: "100%",
+    height: 50,
+  },
+  passwordInput: {
+    flex: 1,
+    height: "100%",
+    paddingHorizontal: 15,
+    fontSize: 16,
+  },
+  eyeIcon: {
+    padding: 10,
+  },
 });
