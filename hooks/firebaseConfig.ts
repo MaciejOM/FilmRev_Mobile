@@ -1,16 +1,17 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { initializeApp } from "firebase/app";
+import { getReactNativePersistence, initializeAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
-// Dane aplikacji Firebase DO UKRYCIA !!!
+// Dane aplikacji Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyDwmwCu1jQR-H_kQXYo77tYkDGl1XQnKhk",
-  authDomain: "filmrev-fb663.firebaseapp.com",
-  projectId: "filmrev-fb663",
-  storageBucket: "filmrev-fb663.firebasestorage.app",
-  messagingSenderId: "59810252191",
-  appId: "1:59810252191:web:6f8c2bf91ea949e61aa9aa",
-  measurementId: "G-XHQWC321JZ"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Inicjalizacja Firebase
@@ -18,4 +19,6 @@ const app = initializeApp(firebaseConfig);
 
 // Eksport bazy danych i autoryzacji
 export const db = getFirestore(app, "filmrev");
-export const auth = getAuth(app);
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});

@@ -1,83 +1,82 @@
-import { auth } from '@/hooks/firebaseConfig'; // Upewnij się, że ścieżka jest poprawna
-import { Tabs, usePathname } from 'expo-router'; // DODANO: usePathname
-import { onAuthStateChanged } from 'firebase/auth';
-import React, { useEffect, useState } from 'react';
+import { AppColors } from "@/constants/theme";
+import { auth } from "@/hooks/firebaseConfig";
+import { Tabs } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
+import React, { useEffect, useState } from "react";
 
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { HapticTab } from "@/components/haptic-tab";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const pathname = usePathname(); 
-  
   const [isLogged, setIsLogged] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Firebase Auth automatycznie wie, czy użytkownik jest zalogowany (nawet po restarcie aplikacji!)
+    // Sprawdzanie stanu logowania
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setIsLogged(true); // Zalogowany
       } else {
         setIsLogged(false); // Wylogowany
       }
-      setIsChecking(false);
     });
 
-    // Zatrzymujemy nasłuchiwanie, gdy komponent zostanie zniszczony
     return unsubscribe;
   }, []);
-
-
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
         tabBarButton: HapticTab,
-      }}>
+        tabBarStyle: {
+          backgroundColor: AppColors.headerBackground,
+          borderTopColor: "#27282e",
+        },
+        tabBarActiveTintColor: AppColors.primary,
+        tabBarInactiveTintColor: AppColors.textGray,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Główna',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={30} name="home" color={color} />
+          ),
         }}
       />
 
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Wyszukaj',
-          tabBarIcon: ({ color }) => <MaterialIcons size={28} name="search" color={color} />,
+          title: "",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={30} name="search" color={color} />
+          ),
         }}
       />
 
-      <Tabs.Screen 
-        name="account" 
-        options={{ 
-          title: 'Zaloguj się',
-          href: isLogged ? null : '/account', 
-          tabBarIcon: ({ color }) => <MaterialIcons size={28} name="account-circle" color={color} />,
-        }} 
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: "",
+          href: isLogged ? null : "/account",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={30} name="account-circle" color={color} />
+          ),
+        }}
       />
 
       <Tabs.Screen
         name="Profile"
         options={{
-          title: 'Konto',
-          href: isLogged ? '/Profile' : null, 
-          tabBarIcon: ({ color }) => <MaterialIcons size={28} name="account-circle" color={color} /> 
-        }} 
+          title: "",
+          href: isLogged ? "/Profile" : null,
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={30} name="account-circle" color={color} />
+          ),
+        }}
       />
-      // UKRYTE
-      <Tabs.Screen name="explore" options={{ href: null}} />
-      <Tabs.Screen name="FilmList" options={{ href: null }} />
-      <Tabs.Screen name="index2" options={{ href: null}} />
     </Tabs>
   );
 }
