@@ -59,7 +59,7 @@ export default function Watchlist() {
       }
     >
       <Image
-        source={{ uri: "https://image.tmdb.org/t/p/w500/" + item.plakat }}
+        source={{ uri: "https://image.tmdb.org/t/p/w154/" + item.plakat }}
         style={styles.posterImage}
         contentFit="cover"
       />

@@ -113,10 +113,7 @@ export default function FilmDetail() {
       Alert.alert(
         "Brak dostępu",
         "Musisz być zalogowany, aby dodać recenzję.",
-        [
-          { text: "Anuluj", style: "cancel" },
-          { text: "Zaloguj się", onPress: () => router.push("/account") },
-        ],
+        [{ text: "OK", style: "cancel" }],
       );
       return;
     }
@@ -239,7 +236,7 @@ export default function FilmDetail() {
   const renderHeader = () => (
     <>
       <ImageBackground
-        source={{ uri: "https://image.tmdb.org/t/p/w500/" + backdrop }}
+        source={{ uri: "https://image.tmdb.org/t/p/w780/" + backdrop }}
         style={styles.backdrop}
         resizeMode="cover"
       >

@@ -20,7 +20,6 @@ import {
 } from "firebase/auth";
 
 import { auth } from "@/hooks/firebaseConfig";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Inicjalizacja sesji przeglądarki niezbędna do poprawnego działania logowania przez Google
 WebBrowser.maybeCompleteAuthSession();
@@ -28,7 +27,6 @@ WebBrowser.maybeCompleteAuthSession();
 export default function AccountScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -59,18 +57,6 @@ export default function AccountScreen() {
     }
   }, [response]);
 
-  // Automatyczne wczytywanie zapisanego adresu e-mail, jeśli użytkownik zaznaczył wcześniej opcję "Zapamiętaj mnie"
-  useEffect(() => {
-    const loadSavedEmail = async () => {
-      const savedEmail = await AsyncStorage.getItem("savedEmail");
-      if (savedEmail) {
-        setEmail(savedEmail);
-        setRememberMe(true);
-      }
-    };
-    loadSavedEmail();
-  }, []);
-
   // Standardowe logowanie e-mailem i hasłem wraz z obsługą zapisu do pamięci lokalnej
   const handleLogin = async () => {
     if (email === "" || password === "") {
@@ -82,13 +68,6 @@ export default function AccountScreen() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-
-      // Obsługa opcji "Zapamiętaj mnie"
-      if (rememberMe) {
-        await AsyncStorage.setItem("savedEmail", email);
-      } else {
-        await AsyncStorage.removeItem("savedEmail");
-      }
 
       setPassword("");
       router.replace("/Profile");
@@ -138,18 +117,6 @@ export default function AccountScreen() {
         </View>
 
         <View style={styles.optionsRow}>
-          <TouchableOpacity
-            style={styles.checkboxContainer}
-            onPress={() => setRememberMe(!rememberMe)}
-          >
-            <View
-              style={[styles.checkbox, rememberMe && styles.checkboxChecked]}
-            >
-              {rememberMe && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-            <Text style={styles.rememberText}>Zapamiętaj mnie</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity onPress={() => router.push("/resetPassword")}>
             <Text style={styles.forgotPasswordText}>Zapomniałeś hasła?</Text>
           </TouchableOpacity>
@@ -218,6 +185,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginBottom: 15,
     fontSize: 16,
+    color: "black",
   },
   RegisterText: { fontSize: 16, color: "white", margin: 20 },
   button: {
@@ -260,7 +228,6 @@ const styles = StyleSheet.create({
   },
   checkboxChecked: { backgroundColor: AppColors.primary },
   checkmark: { color: "white", fontSize: 14, fontWeight: "bold" },
-  rememberText: { color: "#ccc", fontSize: 14 },
   forgotPasswordText: {
     color: AppColors.primary,
     fontSize: 14,
@@ -281,6 +248,7 @@ const styles = StyleSheet.create({
     height: "100%",
     paddingHorizontal: 15,
     fontSize: 16,
+    color: "black",
   },
   eyeIcon: { padding: 10 },
 });

@@ -233,7 +233,7 @@ export default function MyReviews() {
                     <MaterialCommunityIcons
                       name="trash-can"
                       size={24}
-                      color={AppColors.buttonDanger}
+                      color="white"
                     />
                   </TouchableOpacity>
                 </View>

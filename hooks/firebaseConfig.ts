@@ -1,12 +1,15 @@
-//Importy
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// Importy
+import * as SecureStore from "expo-secure-store";
 import { initializeApp } from "firebase/app";
 import { getReactNativePersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
-// Standardowa konfiguracja
+// Funkcja czyszcząca klucze: zamienia wszystkie znaki poza dozwolonymi na podkreślnik
+const secureKey = (key: string) => {
+  return key.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+};
 
-// Dane aplikacji Firebase
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -17,12 +20,16 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Inicjalizacja Firebase
 const app = initializeApp(firebaseConfig);
 
-// Eksport bazy danych i autoryzacji
 export const db = getFirestore(app, "filmrev");
 export const auth = initializeAuth(app, {
-  // AsyncStorage zapisuje stan autoryzacji w pamięci telefonu, aby przy późniejszym odpaleniu aplikacji użytkownik nadal pozostał zalogowany do momentu wylogowania
-  persistence: getReactNativePersistence(AsyncStorage),
+  persistence: getReactNativePersistence({
+    // SecureStore zapisuje stan autoryzacji w pamięci telefonu, aby przy późniejszym odpaleniu aplikacji użytkownik nadal pozostał zalogowany do momentu wylogowania
+    getItem: (key) => SecureStore.getItemAsync(secureKey(key)),
+    setItem: (key, value) => SecureStore.setItemAsync(secureKey(key), value),
+    removeItem: (key) => SecureStore.deleteItemAsync(secureKey(key)),
+  }),
 });
+
+export const storage = getStorage(app);
