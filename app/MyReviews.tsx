@@ -1,3 +1,4 @@
+// Importy
 import Skeleton from "@/components/Skeleton";
 import { AppColors, globalStyles } from "@/constants/theme";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -6,7 +7,8 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   Alert,
-  ScrollView,
+  DeviceEventEmitter,
+  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -21,10 +23,11 @@ import {
 } from "@/hooks/firebaseDatabase";
 
 export default function MyReviews() {
+  // useState'y
   const [reviews, setReviews] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Pobieranie recenzji użytkownika
+  // Pobieranie pełnej historii wszystkich napisanych recenzji przez zalogowanego użytkownika
   const fetchReviews = async () => {
     const user = auth.currentUser;
     if (user) {
@@ -40,7 +43,7 @@ export default function MyReviews() {
     }, []),
   );
 
-  // Usuwanie recenzji
+  // Usuwanie własnej recenzji z bazy z jednoczesnym wysłaniem sygnału
   const handleDeleteReview = (reviewId: string) => {
     Alert.alert("Usuń recenzję", "Czy na pewno chcesz usunąć swoją recenzję?", [
       { text: "Anuluj", style: "cancel" },
@@ -51,16 +54,15 @@ export default function MyReviews() {
           setReviews((prevReviews) =>
             prevReviews.filter((rev) => rev.id !== reviewId),
           );
-
-          deleteFirebaseReview(reviewId).catch((error) => {
-            console.error("Błąd podczas usuwania:", error);
-          });
+          deleteFirebaseReview(reviewId)
+            .then(() => DeviceEventEmitter.emit("refreshProfile"))
+            .catch((error) => console.error("Błąd podczas usuwania:", error));
         },
       },
     ]);
   };
 
-  // Polubienie recenzji
+  // Mechanizm polubień: stan polubienia zmienia się przed wysłaniem go do bazy
   const handleLikePress = async (
     reviewId: string,
     currentLikes: string[] = [],
@@ -80,6 +82,7 @@ export default function MyReviews() {
         return rev;
       }),
     );
+    // Wysyłanie informacji do Firebase
     await toggleFirebaseReviewLike(reviewId, currentUser);
   };
 
@@ -90,17 +93,18 @@ export default function MyReviews() {
           style={styles.closeButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.closeButtonText}>
-            <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
-          </Text>
+          <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
         </TouchableOpacity>
         <Text style={globalStyles.headerText2}>Recenzje</Text>
       </View>
 
       {isLoading ? (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {[1, 2, 3].map((key) => (
-            <View key={key} style={styles.reviewCard}>
+        <FlatList
+          data={[1, 2, 3]}
+          keyExtractor={(item) => item.toString()}
+          contentContainerStyle={styles.scrollContent}
+          renderItem={() => (
+            <View style={styles.reviewCard}>
               <View style={styles.reviewHeader}>
                 <Skeleton width={150} height={20} style={{ flex: 1 }} />
                 <Skeleton width={80} height={20} />
@@ -115,8 +119,8 @@ export default function MyReviews() {
                 <Skeleton width={40} height={25} />
               </View>
             </View>
-          ))}
-        </ScrollView>
+          )}
+        />
       ) : reviews.length === 0 ? (
         <View style={globalStyles.centerContainer}>
           <Text style={globalStyles.emptyText}>
@@ -124,9 +128,12 @@ export default function MyReviews() {
           </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {reviews.map((rev) => (
-            <View key={rev.id} style={styles.reviewCard}>
+        <FlatList
+          data={reviews}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.scrollContent}
+          renderItem={({ item: rev }) => (
+            <View style={styles.reviewCard}>
               <View style={styles.reviewHeader}>
                 <TouchableOpacity
                   style={{ flex: 1 }}
@@ -177,7 +184,6 @@ export default function MyReviews() {
                 </View>
               </View>
 
-              {/* Tagi */}
               {rev.tags && rev.tags.length > 0 && (
                 <View style={styles.reviewTagsContainer}>
                   {rev.tags.map((tag: string) => (
@@ -213,26 +219,22 @@ export default function MyReviews() {
                       })
                     }
                   >
-                    <Text style={[styles.deleteButtonText, { color: "white" }]}>
-                      <MaterialCommunityIcons
-                        name="pencil"
-                        size={24}
-                        color="white"
-                      />
-                    </Text>
+                    <MaterialCommunityIcons
+                      name="pencil"
+                      size={24}
+                      color="white"
+                    />
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[styles.deleteButton, { marginTop: 0 }]}
                     onPress={() => handleDeleteReview(rev.id)}
                   >
-                    <Text style={styles.deleteButtonText}>
-                      <MaterialCommunityIcons
-                        name="trash-can"
-                        size={24}
-                        color="white"
-                      />
-                    </Text>
+                    <MaterialCommunityIcons
+                      name="trash-can"
+                      size={24}
+                      color={AppColors.buttonDanger}
+                    />
                   </TouchableOpacity>
                 </View>
 
@@ -240,30 +242,27 @@ export default function MyReviews() {
                   style={styles.likeButton}
                   onPress={() => handleLikePress(rev.id, rev.likes || [])}
                 >
-                  <Text
-                    style={[
-                      styles.heartIcon,
-                      rev.likes?.includes(auth.currentUser?.uid) &&
-                        styles.heartIconActive,
-                    ]}
-                  >
-                    {rev.likes?.includes(auth.currentUser?.uid) ? (
-                      <MaterialCommunityIcons name="cards-heart" size={24} />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="cards-heart-outline"
-                        size={24}
-                      />
-                    )}
-                  </Text>
+                  <MaterialCommunityIcons
+                    name={
+                      rev.likes?.includes(auth.currentUser?.uid as string)
+                        ? "cards-heart"
+                        : "cards-heart-outline"
+                    }
+                    size={24}
+                    color={
+                      rev.likes?.includes(auth.currentUser?.uid as string)
+                        ? AppColors.primary
+                        : AppColors.textGray
+                    }
+                  />
                   <Text style={styles.likeCountText}>
                     {rev.likes ? rev.likes.length : 0}
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
-          ))}
-        </ScrollView>
+          )}
+        />
       )}
     </View>
   );
@@ -282,9 +281,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  closeButtonText: { color: "white", fontSize: 20, fontWeight: "bold" },
   scrollContent: { paddingHorizontal: 20, paddingTop: 15, paddingBottom: 40 },
-
   reviewCard: {
     backgroundColor: "#3a3c4f",
     padding: 15,
@@ -296,14 +293,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-
   reviewTargetTitle: {
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
     textDecorationLine: "underline",
   },
-
   editedText: {
     color: AppColors.textGray,
     fontSize: 10,
@@ -335,7 +330,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   reviewComment: { color: "#ddd", lineHeight: 20 },
-
   reviewFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -349,22 +343,14 @@ const styles = StyleSheet.create({
   deleteButton: {
     paddingVertical: 5,
     paddingHorizontal: 10,
-    backgroundColor: "rgba(228, 48, 87, 0.52)", // Dopasowana przezroczystość
+    backgroundColor: "rgba(228, 48, 87, 0.52)",
     borderRadius: 5,
   },
-  deleteButtonText: {
-    color: AppColors.buttonDanger,
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-
   likeButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     padding: 5,
   },
-  heartIcon: { fontSize: 22, color: AppColors.textGray },
-  heartIconActive: { color: AppColors.primary },
   likeCountText: { color: "white", fontSize: 14, fontWeight: "bold" },
 });

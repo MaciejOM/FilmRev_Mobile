@@ -1,9 +1,11 @@
+// Importy
 import { AppColors, globalStyles } from "@/constants/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   DeviceEventEmitter,
   ScrollView,
@@ -14,63 +16,71 @@ import {
   View,
 } from "react-native";
 
-import { auth } from "@/hooks/firebaseConfig";
 import { updateFirebaseReview } from "@/hooks/firebaseDatabase";
 
 const AVAILABLE_TAGS = ["Bez spoilerów", "Pierwsze wrażenia"];
 
-// Edycja recenzji. Aplikacja pobiera informacje z recenzji w formie JSON i wkleja je do odpowiednich pól.
 export default function EditReview() {
   const router = useRouter();
 
+  // Pobranie danych recenzji z parametrów ścieżki szczegółów produkcji
   const { reviewId, movieId, initialRating, initialComment, initialTags } =
     useLocalSearchParams();
 
+  // Inicjalizacja useState'ów lokalnych w oparciu o dotychczasowe dane z bazy
   const [rating, setRating] = useState(Number(initialRating) || 0);
   const [comment, setComment] = useState((initialComment as string) || "");
   const [selectedTags, setSelectedTags] = useState<string[]>(
     initialTags ? JSON.parse(initialTags as string) : [],
   );
-  const [isSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Przełączanie tagów
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
   };
 
-  // Zatwierdzenie edycji i wysłąnie jej do Firestore
+  // Zatwierdzenie modyfikacji i wysłanie asynchronicznego zapytania do bazy Firestore
   const handleSubmit = async () => {
-    const userAuth = auth.currentUser;
-
-    if (!userAuth) return;
-    if (rating === 0) return Alert.alert("Błąd", "Zaznacz ocenę gwiazdkową!");
-    if (comment.trim() === "")
-      return Alert.alert("Błąd", "Treść recenzji nie może być pusta!");
+    if (rating === 0) return Alert.alert("Błąd", "Zaznacz ocenę!");
+    if (comment.trim() === "") return Alert.alert("Błąd", "Pusta treść!");
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    router.back();
+    // Włączenie wskaźnika ładowania i zablokowanie przycisku zapisu
+    setIsSubmitting(true);
 
-    DeviceEventEmitter.emit("reviewEdited", {
-      reviewId,
-      rating,
-      comment,
-      selectedTags,
-    });
+    try {
+      // Przekazanie zaktualizowanych danych do chmury
+      await updateFirebaseReview(
+        reviewId as string,
+        movieId as string,
+        rating,
+        comment,
+        selectedTags,
+      );
 
-    updateFirebaseReview(
-      reviewId as string,
-      movieId as string,
-      rating,
-      comment,
-      selectedTags,
-    ).catch((error) => {
-      console.error("Błąd aktualizacji w tle:", error);
-    });
+      // Nadawanie sygnałów do innych ekranów w celu odświeżenia danych
+      DeviceEventEmitter.emit("reviewEdited", {
+        reviewId: reviewId,
+        rating: rating,
+        comment: comment,
+        selectedTags: selectedTags,
+      });
+      DeviceEventEmitter.emit("refreshProfile");
+
+      router.back();
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Błąd", "Nie udało się zaktualizować recenzji.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Wyjście z ekranu. Jeśli zaszły zmiany w treści recenzji, aplikacja zapyta użytkownika, czy na pewno chce wyjść
+  // Zabezpieczenie przed przypadkową utratą wprowadzonych zmian
   const handleBackPress = () => {
     const initialTagsArray = initialTags
       ? JSON.parse(initialTags as string)
@@ -116,9 +126,13 @@ export default function EditReview() {
           onPress={handleSubmit}
           disabled={isSubmitting}
         >
-          <Text style={styles.AcceptButtonText}>
-            <MaterialIcons name="check" size={32} color="white" />
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text style={styles.AcceptButtonText}>
+              <MaterialIcons name="check" size={32} color="white" />
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -164,14 +178,35 @@ export default function EditReview() {
         </ScrollView>
 
         <Text style={styles.label}>Napisz co myślisz:</Text>
-        <TextInput
-          style={styles.reviewInput}
-          placeholder="Jakie są twoje przemyślenia po seansie?"
-          placeholderTextColor={AppColors.textGray}
-          multiline
-          value={comment}
-          onChangeText={setComment}
-        />
+        <View style={{ position: "relative" }}>
+          <TextInput
+            style={[styles.reviewInput, { marginBottom: 20 }]}
+            placeholder="Jakie są twoje przemyślenia po seansie?"
+            placeholderTextColor={AppColors.textGray}
+            multiline
+            value={comment}
+            onChangeText={setComment}
+            maxLength={1028}
+          />
+
+          {1028 - comment.length <= 100 && (
+            <Text
+              style={{
+                color:
+                  1028 - comment.length <= 10
+                    ? AppColors.buttonDanger
+                    : AppColors.textGray,
+                fontSize: 12,
+                position: "absolute",
+                bottom: 30,
+                right: 15,
+                fontWeight: "bold",
+              }}
+            >
+              {1028 - comment.length}
+            </Text>
+          )}
+        </View>
       </ScrollView>
     </View>
   );

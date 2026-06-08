@@ -1,3 +1,4 @@
+// Importy
 import { db } from "@/hooks/firebaseConfig";
 import {
   addDoc,
@@ -15,7 +16,7 @@ import {
   where,
 } from "firebase/firestore";
 
-// Synchronizacja filmów i seriali z bazą danych
+// Synchronizacja nowej listy filmów i seriali z zewnętrznego API do bazy Firestore
 export const syncMediaToFirestore = async (
   mediaArray: any[],
   type: "movie" | "tv",
@@ -36,6 +37,7 @@ export const syncMediaToFirestore = async (
       const docSnap = await getDoc(movieRef);
       const existingData = docSnap.exists() ? docSnap.data() : null;
 
+      // Zapobiega nadpisaniu lokalnej oceny w bazie przy synchronizacji z TMDB
       const currentVoteAverage =
         existingData && existingData.vote_average !== undefined
           ? existingData.vote_average
@@ -65,7 +67,7 @@ export const syncMediaToFirestore = async (
   }
 };
 
-// Pobieranie danych z bazy danych
+// Pobieranie wszystkich zapisanych produkcji danego typu
 export const getMediaFromFirestore = async (type: "movie" | "tv") => {
   try {
     const q = query(collection(db, "movies"), where("typ", "==", type));
@@ -106,6 +108,7 @@ export const addFirebaseReview = async (
       createdAt: serverTimestamp(),
     });
 
+    // Wywołanie przeliczenia średnie oceny przy dodaniu recenzji
     await updateMovieAverageRating(movieId);
 
     return { success: true };
@@ -115,7 +118,7 @@ export const addFirebaseReview = async (
   }
 };
 
-// Pobieranie recenzji dla danej produkcji
+// Pobieranie wszystkich recenzji dla danej produkcji
 export const getFirebaseReviewsForFilm = async (movieId: string) => {
   try {
     const q = query(collection(db, "reviews"), where("movieId", "==", movieId));
@@ -148,6 +151,7 @@ export const deleteFirebaseReview = async (reviewId: string) => {
 
       await deleteDoc(reviewRef);
 
+      // Wywołanie przeliczenia średnie oceny przy usunięciu recenzji
       await updateMovieAverageRating(movieId);
     } else {
       await deleteDoc(reviewRef);
@@ -221,7 +225,7 @@ export const updateMovieAverageRating = async (movieId: string) => {
   }
 };
 
-// polubienia pod recenzjami
+// Polubienia pod recenzjami
 export const toggleFirebaseReviewLike = async (
   reviewId: string,
   userId: string,
@@ -287,7 +291,7 @@ export const toggleUserList = async (
   }
 };
 
-// Pobieranie list użytkownika
+// Pobieranie danych z list użytkownika
 export const getUserList = async (
   userId: string,
   listName: "watchlist" | "favourites",
@@ -323,7 +327,7 @@ export const getUserList = async (
   }
 };
 
-// Pobieranie recenzji użytkownika
+// Pobieranie wszystkich recenzji danego użytkownika
 export const getUserReviews = async (userId: string) => {
   try {
     const q = query(collection(db, "reviews"), where("userId", "==", userId));

@@ -7,7 +7,6 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -22,7 +21,6 @@ export default function FilmList() {
   const { film, isLoading: isFilmLoading, error: filmError } = useFilms();
   const { Tv, isLoading: isTvLoading, error: tvError } = useTV();
 
-  // Filtry
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [filterGenre, setFilterGenre] = useState("");
@@ -33,7 +31,7 @@ export default function FilmList() {
   const hasError = filmError && film.length === 0 && tvError && Tv.length === 0;
   const isSearchEmpty = searchQuery.trim() === "";
 
-  // Łączenie filmów i seriali w jedną listę.
+  // Połączenie filmów i seriali w jedną, uniwersalną listę do bezproblemowego wyszukiwania
   const combinedData = [
     ...film.map((item) => ({
       ...item,
@@ -53,8 +51,7 @@ export default function FilmList() {
     })),
   ];
 
-  // Listy dla filtrów roku i gatunków z Firestore
-  // Rok produkcji
+  // Dynamiczne wyciąganie unikalnych lat produkcji z pobranej bazy (zapobiega to wybieraniu lat bez przypisanych filmów)
   const availableYears = Array.from(
     new Set(
       combinedData.map((item) =>
@@ -66,7 +63,7 @@ export default function FilmList() {
     .sort()
     .reverse();
 
-  // Gatunki
+  // Dynamiczne wyciąganie unikalnych gatunków (odporne na różne formaty zapisu z TMDB/Firebase)
   const availableGenres = Array.from(
     new Set(
       combinedData.flatMap((item) => {
@@ -84,23 +81,19 @@ export default function FilmList() {
     filterYear !== "" ||
     filterRating > 0;
 
-  //Filtrowanie
+  // Główny silnik filtrujący (wyszukiwarka tekstowa + filtry wielokrotnego wyboru)
   const mediaFilter = combinedData.filter((item) => {
-    // 1. Wyszukiwarka tekstowa
     if (
       !isSearchEmpty &&
       !item.searchTitle.toLowerCase().includes(searchQuery.trim().toLowerCase())
     )
       return false;
 
-    // 2. Typ
     if (filterType !== "all" && item.type !== filterType) return false;
 
-    // 3. Rok produkcji
     if (filterYear !== "" && !item.searchDate.startsWith(filterYear))
       return false;
 
-    // 4. Gatunek
     const itemGenres = Array.isArray(item.gatunki)
       ? item.gatunki
       : typeof item.gatunki === "string"
@@ -108,7 +101,6 @@ export default function FilmList() {
         : [];
     if (filterGenre !== "" && !itemGenres.includes(filterGenre)) return false;
 
-    // 5. Ocena
     const rating = Number(item.vote_average || item.srednia_ocen || 0);
     if (filterRating > 0) {
       if (rating < filterRating || rating >= filterRating + 1) {
@@ -121,6 +113,7 @@ export default function FilmList() {
 
   const dataToShow = isSearchEmpty && !hasActiveFilters ? [] : mediaFilter;
 
+  // Resetowanie wszystkich nałożonych filtrów jednym kliknięciem
   const clearFilters = () => {
     setFilterType("all");
     setFilterGenre("");
@@ -160,10 +153,13 @@ export default function FilmList() {
         <View style={styles.filtersContainer}>
           <View style={styles.filterGroup}>
             <Text style={styles.filterLabel}>Rodzaj:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {["all", "movie", "tv"].map((type) => (
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={["all", "movie", "tv"]}
+              keyExtractor={(item) => item}
+              renderItem={({ item: type }) => (
                 <TouchableOpacity
-                  key={type}
                   style={[
                     styles.chip,
                     filterType === type && styles.chipActive,
@@ -183,16 +179,19 @@ export default function FilmList() {
                         : "Seriale"}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              )}
+            />
           </View>
 
           <View style={styles.filterGroup}>
             <Text style={styles.filterLabel}>Min. ocena z recenzji:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {[0, 1, 2, 3, 4, 5].map((rating) => (
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={[0, 1, 2, 3, 4, 5]}
+              keyExtractor={(item) => item.toString()}
+              renderItem={({ item: rating }) => (
                 <TouchableOpacity
-                  key={rating}
                   style={[
                     styles.chip,
                     filterRating === rating && styles.chipActive,
@@ -212,30 +211,20 @@ export default function FilmList() {
                         : `${rating}.0 - ${rating}.9 ★`}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              )}
+            />
           </View>
 
           {availableGenres.length > 0 && (
             <View style={styles.filterGroup}>
               <Text style={styles.filterLabel}>Gatunek:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <TouchableOpacity
-                  style={[styles.chip, filterGenre === "" && styles.chipActive]}
-                  onPress={() => setFilterGenre("")}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      filterGenre === "" && styles.chipTextActive,
-                    ]}
-                  >
-                    Wszystkie
-                  </Text>
-                </TouchableOpacity>
-                {availableGenres.map((genre) => (
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={["", ...availableGenres]}
+                keyExtractor={(item) => item as string}
+                renderItem={({ item: genre }) => (
                   <TouchableOpacity
-                    key={genre as string}
                     style={[
                       styles.chip,
                       filterGenre === genre && styles.chipActive,
@@ -248,34 +237,24 @@ export default function FilmList() {
                         filterGenre === genre && styles.chipTextActive,
                       ]}
                     >
-                      {genre as string}
+                      {genre === "" ? "Wszystkie" : (genre as string)}
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
+                )}
+              />
             </View>
           )}
 
           {availableYears.length > 0 && (
             <View style={styles.filterGroup}>
               <Text style={styles.filterLabel}>Rok produkcji:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <TouchableOpacity
-                  style={[styles.chip, filterYear === "" && styles.chipActive]}
-                  onPress={() => setFilterYear("")}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      filterYear === "" && styles.chipTextActive,
-                    ]}
-                  >
-                    Dowolny
-                  </Text>
-                </TouchableOpacity>
-                {availableYears.map((year) => (
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={["", ...availableYears]}
+                keyExtractor={(item) => item as string}
+                renderItem={({ item: year }) => (
                   <TouchableOpacity
-                    key={year as string}
                     style={[
                       styles.chip,
                       filterYear === year && styles.chipActive,
@@ -288,11 +267,11 @@ export default function FilmList() {
                         filterYear === year && styles.chipTextActive,
                       ]}
                     >
-                      {year as string}
+                      {year === "" ? "Dowolny" : (year as string)}
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
+                )}
+              />
             </View>
           )}
 
@@ -334,7 +313,6 @@ export default function FilmList() {
             </Text>
           }
           renderItem={({ item }) => {
-            // Pobieramy bezpiecznie ocenę, aby ją wyświetlić
             const itemRating = Number(
               item.vote_average || item.srednia_ocen || 0,
             );
@@ -371,7 +349,6 @@ export default function FilmList() {
                   {item.searchTitle}
                 </Text>
 
-                {/* Wyświetlamy średnią ocen z Firebase, o ile film ma chociaż jedną recenzję */}
                 {itemRating > 0 && (
                   <Text style={styles.gridRating}>{itemRating}/5 ★</Text>
                 )}

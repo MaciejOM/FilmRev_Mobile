@@ -1,15 +1,15 @@
+// Importy
 import { AppColors, globalStyles } from "@/constants/theme";
-import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   DeviceEventEmitter,
+  FlatList,
   ImageBackground,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -29,20 +29,23 @@ import {
 import { doc, getDoc } from "firebase/firestore";
 
 export default function FilmDetail() {
+  // Parametry
   const params = useLocalSearchParams();
   const router = useRouter();
 
   const { id, title, release_date, overview, backdrop, gatunki, type } = params;
   const tmdbId = Number(id);
 
+  // useState'y
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
 
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [isInFavourites, setIsInFavourites] = useState(false);
 
-  // Edytowanie recenzji
-  React.useEffect(() => {
+  // Nasłuchiwanie na sygnały z ekranów dodawania i edycji recenzji.
+  // Zapewnia natychmiastową aktualizację listy po powrocie z edytora.
+  useEffect(() => {
     const addSubscription = DeviceEventEmitter.addListener(
       "newReviewAdded",
       (newReview) => {
@@ -76,13 +79,11 @@ export default function FilmDetail() {
     };
   }, []);
 
-  //Załadowanie treści ekranu (Recenzje, dodanie do ulubionych lub watchlisty)
-  const loadData = async () => {
+  // Główna funkcja ładująca dane z bazy. Pobiera recenzje oraz sprawdza listy użytkownika
+  const loadData = useCallback(async () => {
     const userAuth = auth.currentUser;
-
     if (tmdbId) {
       const documentId = `${type || "movie"}_${tmdbId}`;
-
       const fetchedReviews = await getFirebaseReviewsForFilm(documentId);
       setReviews(fetchedReviews);
 
@@ -99,18 +100,15 @@ export default function FilmDetail() {
         setCurrentUser(null);
       }
     }
-  };
+  }, [tmdbId, type]);
 
-  // Załadowanie odpowiednich danych z bazy danych po ID
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tmdbId]),
-  );
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  // Funkcja przycisku dodawania recenzji
+  // Przejście do dodawania nowej recenzji
   const handleAddReviewPress = () => {
+    // Jeśli użytkownik nie jest zalogowany, wyświetli komunikat
     if (!currentUser) {
       Alert.alert(
         "Brak dostępu",
@@ -122,9 +120,7 @@ export default function FilmDetail() {
       );
       return;
     }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
     router.push({
       pathname: "/Review",
       params: { id: tmdbId, type: type || "movie" },
@@ -143,23 +139,19 @@ export default function FilmDetail() {
           setReviews((prevReviews) =>
             prevReviews.filter((rev) => rev.id !== reviewId),
           );
-
           deleteFirebaseReview(reviewId).catch((error) => {
             Alert.alert(
               "Błąd",
               "Nie udało się usunąć recenzji. Sprawdź połączenie z internetem.",
             );
-            console.error("Błąd podczas usuwania:", error);
           });
         },
       },
     ]);
   };
 
-  // Liczenie całkowitej liczby recenzji
+  // Kalkulacja łącznej liczby recenzji
   const totalReviews = reviews.length;
-
-  // Liczenie średniej oceny z recenzji
   const averageRating =
     totalReviews > 0
       ? (
@@ -167,7 +159,6 @@ export default function FilmDetail() {
         ).toFixed(1)
       : 0;
 
-  // Wyświetla "Opinie" lub "Opinii" w zależności od liczby
   const getOpinionsLabel = (count: number) => {
     if (count === 1) return "opinia";
     if (
@@ -179,7 +170,7 @@ export default function FilmDetail() {
     return "opinii";
   };
 
-  // Polubienie recenzji
+  // Mechanizm polubień: stan polubienia zmienia się przed wysłaniem go do bazy
   const handleLikePress = async (
     reviewId: string,
     currentLikes: string[] = [],
@@ -191,11 +182,9 @@ export default function FilmDetail() {
       );
       return;
     }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const hasLiked = currentLikes.includes(currentUser);
-
     setReviews((prevReviews) =>
       prevReviews.map((rev) => {
         if (rev.id === reviewId) {
@@ -207,55 +196,97 @@ export default function FilmDetail() {
         return rev;
       }),
     );
-
     await toggleFirebaseReviewLike(reviewId, currentUser);
   };
 
-  // Dodanie do listy "Do obejrzenia"
+  // Przełączanie statusu "Do obejrzenia"
   const handleToggleWatchlist = () => {
-    if (!currentUser) {
-      Alert.alert(
+    if (!currentUser)
+      return Alert.alert(
         "Zaloguj się",
         "Musisz być zalogowany, aby zapisać ten tytuł na później.",
       );
-      return;
-    }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const documentId = `${type || "movie"}_${tmdbId}`;
     const previousState = isInWatchlist;
-
     setIsInWatchlist(!previousState);
 
-    toggleUserList(currentUser, "watchlist", documentId).catch((error) => {
-      console.error("Błąd aktualizacji listy do obejrzenia:", error);
-      setIsInWatchlist(previousState);
-    });
+    toggleUserList(currentUser, "watchlist", documentId).catch(() =>
+      setIsInWatchlist(previousState),
+    );
   };
 
-  // Dodanie do ulubionych
+  // Przełączanie statusu "Ulubione"
   const handleToggleFavourite = () => {
-    if (!currentUser) {
-      Alert.alert(
+    if (!currentUser)
+      return Alert.alert(
         "Zaloguj się",
         "Musisz być zalogowany, aby dodać tytuł do ulubionych.",
       );
-      return;
-    }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const documentId = `${type || "movie"}_${tmdbId}`;
     const previousState = isInFavourites;
-
     setIsInFavourites(!previousState);
 
-    toggleUserList(currentUser, "favourites", documentId).catch((error) => {
-      console.error("Błąd aktualizacji ulubionych:", error);
-      setIsInFavourites(previousState);
-    });
+    toggleUserList(currentUser, "favourites", documentId).catch(() =>
+      setIsInFavourites(previousState),
+    );
   };
+
+  //Renderowanie głównej sekcji szczegółów (Tło, tytuł, opis, gatunki, premiera, nagłówek recenzji)
+  const renderHeader = () => (
+    <>
+      <ImageBackground
+        source={{ uri: "https://image.tmdb.org/t/p/w500/" + backdrop }}
+        style={styles.backdrop}
+        resizeMode="cover"
+      >
+        <LinearGradient
+          colors={[
+            "transparent",
+            "rgba(37, 39, 54, 0.5)",
+            AppColors.background,
+          ]}
+          style={styles.gradient}
+        />
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.titleText}>{title}</Text>
+          <Text style={styles.dateText}>Premiera: {release_date}</Text>
+          {gatunki && <Text style={styles.genreText}>{gatunki}</Text>}
+        </View>
+      </ImageBackground>
+
+      <View style={styles.detailsContainer}>
+        <Text style={styles.sectionTitle}>Opis fabuły</Text>
+        <Text style={styles.overviewText}>{overview}</Text>
+      </View>
+
+      <View style={[styles.reviewsSection, { paddingBottom: 0 }]}>
+        <View style={styles.reviewsHeaderContainer}>
+          <TouchableOpacity
+            style={styles.AddButton}
+            onPress={handleAddReviewPress}
+          >
+            <Text style={styles.AddButtonText}>
+              <MaterialCommunityIcons name="plus" size={24} color="white" />
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.reviewSectionTitle}>Recenzje</Text>
+          {totalReviews > 0 && (
+            <View style={styles.averageRatingContainer}>
+              <Text style={styles.averageRatingText}>{averageRating}</Text>
+              <Text style={styles.averageRatingStar}>★</Text>
+              <Text style={styles.totalReviewsText}>
+                ({totalReviews} {getOpinionsLabel(totalReviews)})
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </>
+  );
 
   return (
     <View style={styles.container}>
@@ -264,9 +295,7 @@ export default function FilmDetail() {
           style={styles.closeButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.closeButtonText}>
-            <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
-          </Text>
+          <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -276,14 +305,11 @@ export default function FilmDetail() {
           ]}
           onPress={handleToggleWatchlist}
         >
-          <Text
-            style={[
-              styles.WatchButtonText,
-              isInWatchlist && { color: "white" },
-            ]}
-          >
-            <MaterialCommunityIcons name="eye" size={32} color="white" />
-          </Text>
+          <MaterialCommunityIcons
+            name="eye"
+            size={32}
+            color={isInWatchlist ? "white" : "white"}
+          />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -293,222 +319,160 @@ export default function FilmDetail() {
           ]}
           onPress={handleToggleFavourite}
         >
-          <Text
-            style={[
-              styles.LikeButtonText,
-              isInFavourites && { color: "white" },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name="cards-heart"
-              size={32}
-              color="white"
-            />
-          </Text>
+          <MaterialCommunityIcons
+            name="cards-heart"
+            size={32}
+            color={isInFavourites ? "white" : "white"}
+          />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <ImageBackground
-          source={{ uri: "https://image.tmdb.org/t/p/w500/" + backdrop }}
-          style={styles.backdrop}
-          resizeMode="cover"
-        >
-          <LinearGradient
-            colors={[
-              "transparent",
-              "rgba(37, 39, 54, 0.5)",
-              AppColors.background,
-            ]}
-            style={styles.gradient}
-          />
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.titleText}>{title}</Text>
-            <Text style={styles.dateText}>Premiera: {release_date}</Text>
-            {gatunki && <Text style={styles.genreText}>{gatunki}</Text>}
-          </View>
-        </ImageBackground>
-
-        <View style={styles.detailsContainer}>
-          <Text style={styles.sectionTitle}>Opis fabuły</Text>
-          <Text style={styles.overviewText}>{overview}</Text>
-        </View>
-
-        <View style={styles.reviewsSection}>
-          <View style={styles.reviewsHeaderContainer}>
-            <TouchableOpacity
-              style={styles.AddButton}
-              onPress={handleAddReviewPress}
-            >
-              <Text style={styles.AddButtonText}>
-                <MaterialCommunityIcons name="plus" size={24} color="White" />
-              </Text>
-            </TouchableOpacity>
-            <Text style={styles.reviewSectionTitle}>Recenzje</Text>
-            {totalReviews > 0 && (
-              <View style={styles.averageRatingContainer}>
-                <Text style={styles.averageRatingText}>{averageRating}</Text>
-                <Text style={styles.averageRatingStar}>★</Text>
-                <Text style={styles.totalReviewsText}>
-                  ({totalReviews} {getOpinionsLabel(totalReviews)})
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {reviews.length === 0 ? (
+      <FlatList
+        data={reviews}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={
+          <View style={{ paddingHorizontal: 20 }}>
             <Text style={styles.noReviewsText}>
               Brak recenzji. Bądź pierwszą osobą, która oceni ten tytuł!
             </Text>
-          ) : (
-            reviews.map((rev) => (
-              <View key={rev.id} style={styles.reviewCard}>
-                <View style={styles.reviewHeader}>
-                  {rev.avatar ? (
-                    <Image
-                      source={{ uri: rev.avatar }}
-                      style={styles.reviewAvatar}
-                    />
-                  ) : (
-                    <View style={styles.reviewAvatarPlaceholder}>
-                      <Text style={{ color: "white" }}>
-                        {rev.nazwa_uzytkownika.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <Text style={styles.reviewAuthor}>
-                    {rev.nazwa_uzytkownika}
-                  </Text>
-
-                  {rev.isEdited && (
-                    <Text
-                      style={{
-                        color: AppColors.textGray,
-                        fontSize: 12,
-                        marginRight: 10,
-                        fontStyle: "italic",
-                      }}
-                    >
-                      edytowano
+          </View>
+        }
+        renderItem={({ item: rev }) => (
+          <View style={{ paddingHorizontal: 20 }}>
+            <View style={styles.reviewCard}>
+              <View style={styles.reviewHeader}>
+                {rev.avatar ? (
+                  <Image
+                    source={{ uri: rev.avatar }}
+                    style={styles.reviewAvatar}
+                  />
+                ) : (
+                  <View style={styles.reviewAvatarPlaceholder}>
+                    <Text style={{ color: "white" }}>
+                      {rev.nazwa_uzytkownika.charAt(0).toUpperCase()}
                     </Text>
-                  )}
-
-                  <View style={styles.reviewScoreContainer}>
-                    <Text style={styles.reviewScoreText}>{rev.ocena}/5 </Text>
-                    <View style={{ flexDirection: "row" }}>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Text
-                          key={star}
-                          style={
-                            star <= rev.ocena
-                              ? styles.starSelectedSmall
-                              : styles.starUnselectedSmall
-                          }
-                        >
-                          ★
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-                </View>
-
-                {rev.tags && rev.tags.length > 0 && (
-                  <View style={styles.reviewTagsContainer}>
-                    {rev.tags.map((tag: string) => (
-                      <View key={tag} style={styles.reviewTagBadge}>
-                        <Text style={styles.reviewTagText}>{tag}</Text>
-                      </View>
-                    ))}
                   </View>
                 )}
+                <Text style={styles.reviewAuthor}>{rev.nazwa_uzytkownika}</Text>
 
-                <Text style={styles.reviewComment}>{rev.tresc}</Text>
-
-                <View style={styles.reviewFooter}>
-                  <View style={styles.reviewActionsLeft}>
-                    {currentUser && currentUser === rev.userId && (
-                      <>
-                        <TouchableOpacity
-                          style={[
-                            styles.deleteButton,
-                            {
-                              marginTop: 0,
-                              backgroundColor: "rgba(255, 255, 255, 0.1)",
-                            },
-                          ]}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/EditReview",
-                              params: {
-                                reviewId: rev.id,
-                                movieId: `${type || "movie"}_${tmdbId}`,
-                                initialRating: rev.ocena,
-                                initialComment: rev.tresc,
-                                initialTags: JSON.stringify(rev.tags || []),
-                              },
-                            })
-                          }
-                        >
-                          <Text
-                            style={[
-                              styles.deleteButtonText,
-                              { color: "white" },
-                            ]}
-                          >
-                            <MaterialCommunityIcons
-                              name="pencil"
-                              size={24}
-                              color="white"
-                            />
-                          </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.deleteButton, { marginTop: 0 }]}
-                          onPress={() => handleDeleteReview(rev.id)}
-                        >
-                          <Text style={styles.deleteButtonText}>
-                            <MaterialCommunityIcons
-                              name="trash-can"
-                              size={24}
-                              color="white"
-                            />
-                          </Text>
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.likeButton}
-                    onPress={() => handleLikePress(rev.id, rev.likes || [])}
+                {rev.isEdited && (
+                  <Text
+                    style={{
+                      color: AppColors.textGray,
+                      fontSize: 12,
+                      marginRight: 10,
+                      fontStyle: "italic",
+                    }}
                   >
-                    <Text
-                      style={[
-                        styles.heartIcon,
-                        rev.likes?.includes(currentUser) &&
-                          styles.heartIconActive,
-                      ]}
-                    >
-                      {rev.likes?.includes(currentUser) ? (
-                        <MaterialCommunityIcons name="cards-heart" size={24} />
-                      ) : (
-                        <MaterialCommunityIcons
-                          name="cards-heart-outline"
-                          size={24}
-                        />
-                      )}
-                    </Text>
-                    <Text style={styles.likeCountText}>
-                      {rev.likes ? rev.likes.length : 0}
-                    </Text>
-                  </TouchableOpacity>
+                    edytowano
+                  </Text>
+                )}
+
+                <View style={styles.reviewScoreContainer}>
+                  <Text style={styles.reviewScoreText}>{rev.ocena}/5 </Text>
+                  <View style={{ flexDirection: "row" }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Text
+                        key={star}
+                        style={
+                          star <= rev.ocena
+                            ? styles.starSelectedSmall
+                            : styles.starUnselectedSmall
+                        }
+                      >
+                        ★
+                      </Text>
+                    ))}
+                  </View>
                 </View>
               </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
+
+              {rev.tags && rev.tags.length > 0 && (
+                <View style={styles.reviewTagsContainer}>
+                  {rev.tags.map((tag: string) => (
+                    <View key={tag} style={styles.reviewTagBadge}>
+                      <Text style={styles.reviewTagText}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <Text style={styles.reviewComment}>{rev.tresc}</Text>
+
+              <View style={styles.reviewFooter}>
+                <View style={styles.reviewActionsLeft}>
+                  {currentUser && currentUser === rev.userId && (
+                    <>
+                      <TouchableOpacity
+                        style={[
+                          styles.deleteButton,
+                          {
+                            marginTop: 0,
+                            backgroundColor: "rgba(255, 255, 255, 0.1)",
+                          },
+                        ]}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/EditReview",
+                            params: {
+                              reviewId: rev.id,
+                              movieId: `${type || "movie"}_${tmdbId}`,
+                              initialRating: rev.ocena,
+                              initialComment: rev.tresc,
+                              initialTags: JSON.stringify(rev.tags || []),
+                            },
+                          })
+                        }
+                      >
+                        <MaterialCommunityIcons
+                          name="pencil"
+                          size={24}
+                          color="white"
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.deleteButton, { marginTop: 0 }]}
+                        onPress={() => handleDeleteReview(rev.id)}
+                      >
+                        <MaterialCommunityIcons
+                          name="trash-can"
+                          size={24}
+                          color={AppColors.buttonDanger}
+                        />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.likeButton}
+                  onPress={() => handleLikePress(rev.id, rev.likes || [])}
+                >
+                  <MaterialCommunityIcons
+                    name={
+                      rev.likes?.includes(currentUser)
+                        ? "cards-heart"
+                        : "cards-heart-outline"
+                    }
+                    size={24}
+                    color={
+                      rev.likes?.includes(currentUser)
+                        ? AppColors.primary
+                        : AppColors.textGray
+                    }
+                  />
+                  <Text style={styles.likeCountText}>
+                    {rev.likes ? rev.likes.length : 0}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+      />
     </View>
   );
 }
@@ -535,7 +499,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  closeButtonText: { color: "white", fontSize: 30, fontWeight: "bold" },
   AddButton: {
     position: "absolute",
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -559,7 +522,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  LikeButtonText: { color: "white", fontSize: 30, fontWeight: "bold" },
   WatchButton: {
     position: "absolute",
     top: 50,
@@ -572,7 +534,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  WatchButtonText: { color: "white", fontSize: 30, fontWeight: "bold" },
   headerTextContainer: { paddingHorizontal: 20, paddingBottom: 20, zIndex: 5 },
   titleText: {
     fontSize: 32,
@@ -614,7 +575,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   overviewText: { fontSize: 16, color: "#ccc", lineHeight: 24 },
-
   reviewTagsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -635,7 +595,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textTransform: "uppercase",
   },
-
   reviewsSection: { paddingHorizontal: 20, marginTop: 10 },
   reviewsHeaderContainer: {
     flexDirection: "row",
@@ -643,48 +602,15 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
     marginBottom: 10,
   },
-  averageRatingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  averageRatingText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "white",
-  },
+  averageRatingContainer: { flexDirection: "row", alignItems: "center" },
+  averageRatingText: { fontSize: 24, fontWeight: "bold", color: "white" },
   averageRatingStar: {
     fontSize: 22,
     color: "#FFD700",
     marginLeft: 4,
     marginRight: 8,
   },
-  totalReviewsText: {
-    fontSize: 14,
-    color: AppColors.textGray,
-  },
-  addReviewCard: {
-    backgroundColor: "#3a3c4f",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 25,
-  },
-  addReviewTitle: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  starsContainer: { flexDirection: "row", marginBottom: 15 },
-  star: { fontSize: 35, marginRight: 5 },
-  starSelected: { color: "#FFD700" },
-  starUnselected: { color: "#555" },
-  reviewInput: {
-    backgroundColor: AppColors.inputBackground,
-    borderRadius: 5,
-    padding: 10,
-    height: 80,
-    textAlignVertical: "top",
-  },
+  totalReviewsText: { fontSize: 14, color: AppColors.textGray },
   noReviewsText: {
     color: AppColors.textGray,
     fontStyle: "italic",
@@ -713,26 +639,18 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   reviewAuthor: { color: "white", fontWeight: "bold", fontSize: 16, flex: 1 },
-
   reviewScoreContainer: { flexDirection: "row", alignItems: "center" },
   reviewScoreText: { color: "#FFD700", fontWeight: "bold", marginRight: 5 },
   starSelectedSmall: { color: "#FFD700", fontSize: 16 },
   starUnselectedSmall: { color: "#555", fontSize: 16 },
-
   reviewComment: { color: "#ddd", lineHeight: 20 },
-
   deleteButton: {
     alignSelf: "flex-start",
     marginTop: 15,
     paddingVertical: 5,
     paddingHorizontal: 10,
-    backgroundColor: "rgba(228, 48, 87, 0.52)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 5,
-  },
-  deleteButtonText: {
-    color: AppColors.buttonDanger,
-    fontSize: 12,
-    fontWeight: "bold",
   },
   reviewFooter: {
     flexDirection: "row",
@@ -743,26 +661,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.05)",
     paddingTop: 10,
   },
-  reviewActionsLeft: {
-    flexDirection: "row",
-    gap: 10,
-  },
+  reviewActionsLeft: { flexDirection: "row", gap: 10 },
   likeButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     padding: 5,
   },
-  heartIcon: {
-    fontSize: 22,
-    color: AppColors.textGray,
-  },
-  heartIconActive: {
-    color: AppColors.primary,
-  },
-  likeCountText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
+  likeCountText: { color: "white", fontSize: 14, fontWeight: "bold" },
 });

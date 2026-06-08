@@ -1,8 +1,10 @@
+//importy
 import { globalStyles } from "@/constants/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   StyleSheet,
   Text,
@@ -24,7 +26,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Rejestrowanie konta
+  // Tworzenie konta w Firebase Auth oraz inicjalizacja struktury profilu w Firestore
   const handleRegister = async () => {
     if (password !== confirmPassword) {
       Alert.alert("Błąd", "Hasła nie są identyczne!");
@@ -35,7 +37,11 @@ export default function RegisterScreen() {
       return;
     }
 
+    // Blokada zapobiegająca tworzeniu duplikatów przy wielokrotnym kliknięciu
+    setIsSubmitting(true);
+
     try {
+      // Rejestracja i automatyczne zalogowanie użytkownika przez Firebase
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -43,6 +49,7 @@ export default function RegisterScreen() {
       );
       const user = userCredential.user;
 
+      // Tworzenie dedykowanego dokumentu użytkownika w bazie z podstawowymi danymi
       await setDoc(doc(db, "users", user.uid), {
         nazwa_uzytkownika: username.toLowerCase(),
         email: email.toLowerCase(),
@@ -50,11 +57,13 @@ export default function RegisterScreen() {
         avatar: null,
       });
 
+      // Bezpośrednie przekierowanie do aplikacji (omijające ekran powrotny)
       Alert.alert(
-        "Sukces",
-        "Konto zostało utworzone! Możesz się teraz zalogować.",
-        [{ text: "OK", onPress: () => router.back() }],
+        "Witaj w FilmRev!",
+        "Twoje konto zostało pomyślnie utworzone.",
+        [{ text: "Zaczynamy", onPress: () => router.replace("/") }],
       );
+
       setUsername("");
       setEmail("");
       setPassword("");
@@ -67,11 +76,6 @@ export default function RegisterScreen() {
       } else {
         Alert.alert("Błąd", "Nie udało się zarejestrować konta.");
       }
-    }
-    setIsSubmitting(true);
-    try {
-    } catch (error: any) {
-      console.error(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -90,6 +94,7 @@ export default function RegisterScreen() {
         </TouchableOpacity>
         <Text style={globalStyles.headerText2}>Zarejestruj się</Text>
       </View>
+      {/* formularz rejestracji */}
       <View style={styles.container}>
         <TextInput
           style={styles.input}
@@ -157,9 +162,12 @@ export default function RegisterScreen() {
           onPress={handleRegister}
           disabled={isSubmitting}
         >
-          <Text style={styles.buttonText}>
-            {isSubmitting ? "Tworzenie konta..." : "Zarejestruj się"}
-          </Text>
+          {/* Animacja ładowania chroniąca przed dublowaniem wysyłania formularza */}
+          {isSubmitting ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttonText}>Zarejestruj się</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -186,7 +194,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 5,
     alignItems: "center",
+    justifyContent: "center",
     marginTop: 10,
+    height: 55,
   },
   buttonText: { color: "white", fontSize: 18, fontWeight: "bold" },
   closeButton: {
@@ -217,7 +227,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 16,
   },
-  eyeIcon: {
-    padding: 10,
-  },
+  eyeIcon: { padding: 10 },
 });

@@ -1,9 +1,11 @@
+// Importy
 import { AppColors, globalStyles } from "@/constants/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   DeviceEventEmitter,
   ScrollView,
@@ -18,25 +20,42 @@ import { auth, db } from "@/hooks/firebaseConfig";
 import { addFirebaseReview } from "@/hooks/firebaseDatabase";
 import { doc, getDoc } from "firebase/firestore";
 
-// tagi recenzji
 const AVAILABLE_TAGS = ["Bez spoilerów", "Pierwsze wrażenia"];
 
+// Ekran dodawania nowej recenzji do konkretnej produkcji
 export default function ReviewEditor() {
   const router = useRouter();
+
+  // Pobranie danych produkcji przekazanych z ekranu szczegółów
   const { id, type } = useLocalSearchParams();
 
+  // useState'y
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [isSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
 
+  // Pobranie aktualnych danych użytkownika (np. avatar, nazwa) przy montowaniu komponentu,
+  // aby zapobiec opóźnieniom w momencie kliknięcia przycisku zapisu
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (auth.currentUser) {
+        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (snap.exists()) setUserData(snap.data());
+      }
+    };
+    fetchUser();
+  }, []);
+
+  // Dodawanie lub usuwanie tagu z tablicy zaznaczonych elementów
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
   };
 
-  // Zatwierdzenie i dodawanie recenzji do Firestore
+  // Zapisanie recenzji w bazie Firestore
   const handleSubmit = async () => {
     const userAuth = auth.currentUser;
     if (!userAuth) return Alert.alert("Błąd", "Musisz być zalogowany.");
@@ -45,14 +64,25 @@ export default function ReviewEditor() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    router.back();
+    // Włączenie wskaźnika ładowania blokującego podwójne kliknięcia
+    setIsSubmitting(true);
 
     try {
-      const userDocRef = doc(db, "users", userAuth.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      const userData = userDocSnap.data();
       const documentId = `${type || "movie"}_${id}`;
 
+      // Oczekiwanie na potwierdzenie zapisu w chmurze zapobiega powstawaniu
+      // tzw. osieroconych danych i błędów braku dokumentu przy szybkiej edycji.
+      await addFirebaseReview(
+        documentId,
+        userAuth.uid,
+        userData?.nazwa_uzytkownika || "Użytkownik",
+        userData?.avatar || null,
+        rating,
+        comment,
+        selectedTags,
+      );
+
+      // Konstruowanie lokalnej paczki danych w celu natychmiastowej aktualizacji UI
       const optimisticReview = {
         id: Math.random().toString(),
         movieId: documentId,
@@ -63,24 +93,26 @@ export default function ReviewEditor() {
         tresc: comment,
         tags: selectedTags,
         likes: [],
+        isEdited: false,
       };
-      DeviceEventEmitter.emit("newReviewAdded", optimisticReview);
 
-      await addFirebaseReview(
-        documentId,
-        userAuth.uid,
-        userData?.nazwa_uzytkownika || "Użytkownik",
-        userData?.avatar || null,
-        rating,
-        comment,
-        selectedTags,
-      );
+      // Wysłanie paczki danych do FilmDetail oraz sygnału odświeżenia licznika do Profilu
+      DeviceEventEmitter.emit("newReviewAdded", optimisticReview);
+      DeviceEventEmitter.emit("refreshProfile");
+
+      router.back();
     } catch (error) {
       console.error(error);
+      Alert.alert(
+        "Błąd",
+        "Nie udało się zapisać recenzji. Sprawdź połączenie.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Wyjście z ekranu recenzji. Jeśli została wpisana jakaś treść lub wybrana ocena, aplikacja spyta się, czy na pewno użytkownik chce wyjść z ekranu.
+  // Zabezpieczenie chroniące użytkownika przed utratą wprowadzonego tekstu
   const handleBackPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -114,14 +146,19 @@ export default function ReviewEditor() {
         >
           Dodaj recenzję
         </Text>
+
         <TouchableOpacity
           style={[styles.AcceptButton, isSubmitting && { opacity: 0.5 }]}
           onPress={handleSubmit}
           disabled={isSubmitting}
         >
-          <Text style={styles.AcceptButtonText}>
-            <MaterialIcons name="check" size={32} color="white" />
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text style={styles.AcceptButtonText}>
+              <MaterialIcons name="check" size={32} color="white" />
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -167,14 +204,36 @@ export default function ReviewEditor() {
         </ScrollView>
 
         <Text style={styles.label}>Napisz co myślisz:</Text>
-        <TextInput
-          style={styles.reviewInput}
-          placeholder="Jakie są twoje przemyślenia po seansie?"
-          placeholderTextColor={AppColors.textGray}
-          multiline
-          value={comment}
-          onChangeText={setComment}
-        />
+        <View style={{ position: "relative" }}>
+          <TextInput
+            style={[styles.reviewInput, { marginBottom: 20 }]}
+            placeholder="Jakie są twoje przemyślenia po seansie?"
+            placeholderTextColor={AppColors.textGray}
+            multiline
+            value={comment}
+            onChangeText={setComment}
+            maxLength={1028}
+          />
+
+          {/* Ostrzeżenie o zbliżaniu się do limitu znaków */}
+          {1028 - comment.length <= 100 && (
+            <Text
+              style={{
+                color:
+                  1028 - comment.length <= 10
+                    ? AppColors.buttonDanger
+                    : AppColors.textGray,
+                fontSize: 12,
+                position: "absolute",
+                bottom: 30,
+                right: 15,
+                fontWeight: "bold",
+              }}
+            >
+              {1028 - comment.length}
+            </Text>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -219,7 +278,6 @@ const styles = StyleSheet.create({
   star: { fontSize: 45, marginRight: 10 },
   starSelected: { color: "#FFD700" },
   starUnselected: { color: "#555" },
-
   tagsScroll: { marginBottom: 20, maxHeight: 40 },
   tagChip: {
     backgroundColor: "#3a3c4f",
@@ -237,7 +295,6 @@ const styles = StyleSheet.create({
   },
   tagText: { color: "#ccc", fontSize: 14 },
   tagTextSelected: { color: AppColors.primary, fontWeight: "bold" },
-
   reviewInput: {
     backgroundColor: "#3a3c4f",
     borderRadius: 10,
@@ -248,6 +305,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: "#555",
-    marginBottom: 40,
   },
 });
