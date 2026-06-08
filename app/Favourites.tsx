@@ -1,3 +1,4 @@
+// Importy
 import Skeleton from "@/components/Skeleton";
 import { AppColors, globalStyles } from "@/constants/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -5,7 +6,7 @@ import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ScrollView,
+  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,10 +17,13 @@ import { auth } from "@/hooks/firebaseConfig";
 import { getUserList } from "@/hooks/firebaseDatabase";
 
 export default function Favourites() {
+  // useState'y
   const [movies, setMovies] = useState<any[]>([]);
   const [tvShows, setTvShows] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"movie" | "tv">("movie");
 
+  // Asynchroniczne pobieranie list z bazy przy każdym wejściu na ten ekran
   useFocusEffect(
     useCallback(() => {
       const fetchList = async () => {
@@ -35,10 +39,9 @@ export default function Favourites() {
     }, []),
   );
 
-  // Renderowanie listy produkcji
-  const renderGridItem = (item: any) => (
+  // Renderowanie plakatu produkcji wraz z jego przypisanymi danymi w siatce
+  const renderGridItem = ({ item }: { item: any }) => (
     <TouchableOpacity
-      key={item.id}
       style={styles.gridItem}
       onPress={() =>
         router.push({
@@ -58,9 +61,13 @@ export default function Favourites() {
       <Image
         source={{ uri: "https://image.tmdb.org/t/p/w500/" + item.plakat }}
         style={styles.posterImage}
+        contentFit="cover"
       />
     </TouchableOpacity>
   );
+
+  // Dynamiczne podmienianie źródła danych FlatListy w oparciu o wybraną zakładkę
+  const dataToShow = activeTab === "movie" ? movies : tvShows;
 
   return (
     <View style={globalStyles.container}>
@@ -69,57 +76,84 @@ export default function Favourites() {
           style={styles.closeButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.closeButtonText}>
-            <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
-          </Text>
+          <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
         </TouchableOpacity>
         <Text style={globalStyles.headerText2}>Ulubione</Text>
       </View>
 
       {isLoading ? (
-        // --- NOWOŚĆ: SZKIELET ŁADOWANIA ZAMIAST KRĘCĄCEGO SIĘ KÓŁKA ---
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Skeleton
-            width={120}
-            height={20}
-            borderRadius={4}
-            style={{ marginBottom: 15, marginTop: 10 }}
-          />
-          <View style={styles.gridContainer}>
-            {/* Generujemy 6 pustych, pulsujących plakatów */}
-            {[1, 2, 3, 4, 5, 6].map((key) => (
-              <Skeleton key={key} style={styles.gridItem} />
-            ))}
-          </View>
-        </ScrollView>
+        // Renderowanie wskaźników ładowania na czas oczekiwania na dane z Firestore
+        <FlatList
+          data={[1, 2, 3, 4, 5, 6]}
+          keyExtractor={(item) => item.toString()}
+          numColumns={3}
+          columnWrapperStyle={{ gap: 15, justifyContent: "flex-start" }}
+          contentContainerStyle={styles.scrollContent}
+          ListHeaderComponent={
+            <Skeleton
+              width={120}
+              height={20}
+              borderRadius={4}
+              style={{ marginBottom: 15, marginTop: 10 }}
+            />
+          }
+          renderItem={() => <Skeleton style={styles.gridItem} />}
+        />
       ) : movies.length === 0 && tvShows.length === 0 ? (
         <View style={globalStyles.centerContainer}>
           <Text style={globalStyles.emptyText}>Brak ulubionych tytułów.</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {movies.length > 0 && (
-            <>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Filmy</Text>
-              </View>
-              <View style={styles.gridContainer}>
-                {movies.map(renderGridItem)}
-              </View>
-            </>
-          )}
+        <View style={{ flex: 1 }}>
+          <View style={styles.tabsContainer}>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                activeTab === "movie" && styles.tabButtonActive,
+              ]}
+              onPress={() => setActiveTab("movie")}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === "movie" && styles.tabTextActive,
+                ]}
+              >
+                Filmy ({movies.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                activeTab === "tv" && styles.tabButtonActive,
+              ]}
+              onPress={() => setActiveTab("tv")}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === "tv" && styles.tabTextActive,
+                ]}
+              >
+                Seriale ({tvShows.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-          {tvShows.length > 0 && (
-            <>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Seriale</Text>
-              </View>
-              <View style={styles.gridContainer}>
-                {tvShows.map(renderGridItem)}
-              </View>
-            </>
-          )}
-        </ScrollView>
+          <FlatList
+            data={dataToShow}
+            keyExtractor={(item) => item.id}
+            numColumns={3}
+            contentContainerStyle={styles.scrollContent}
+            columnWrapperStyle={{ gap: 15, justifyContent: "flex-start" }}
+            ListEmptyComponent={
+              <Text style={globalStyles.emptyText}>
+                Brak zapisanych tytułów w tej kategorii.
+              </Text>
+            }
+            renderItem={renderGridItem}
+          />
+        </View>
       )}
     </View>
   );
@@ -138,29 +172,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  closeButtonText: { color: "white", fontSize: 20, fontWeight: "bold" },
   scrollContent: { padding: 20, paddingBottom: 40 },
-  sectionHeader: {
-    borderBottomWidth: 1,
-    borderColor: "#3a3c4f",
-    paddingBottom: 5,
-    marginBottom: 15,
-    marginTop: 10,
-  },
-  sectionTitle: {
-    color: AppColors.textGray,
-    fontSize: 14,
-    fontWeight: "bold",
-    textTransform: "uppercase",
-  },
-  gridContainer: { flexDirection: "row", flexWrap: "wrap", gap: "3%" }, // 3% gap pomiędzy elementami
   gridItem: {
-    width: "31%",
-    marginBottom: 15,
+    flex: 1,
+    maxWidth: "31%",
     aspectRatio: 2 / 3,
     backgroundColor: "#3a3c4f",
     borderRadius: 8,
     overflow: "hidden",
+    marginBottom: 15,
   },
-  posterImage: { width: "100%", height: "100%", resizeMode: "cover" },
+  posterImage: { width: "100%", height: "100%" },
+  tabsContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 5,
+    gap: 15,
+  },
+  tabButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#3a3c4f",
+    backgroundColor: "#27282e",
+  },
+  tabButtonActive: {
+    backgroundColor: "rgba(184, 0, 92, 0.2)",
+    borderColor: AppColors.primary,
+  },
+  tabText: { color: AppColors.textGray, fontWeight: "bold" },
+  tabTextActive: { color: AppColors.primary },
 });

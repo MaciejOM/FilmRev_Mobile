@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
 import renderer, { act } from "react-test-renderer";
@@ -14,7 +16,7 @@ jest.mock("expo-router", () => {
     useFocusEffect: jest.fn((callback) => {
       React.useEffect(() => {
         callback();
-      }, []);
+      }, [callback]);
     }),
   };
 });

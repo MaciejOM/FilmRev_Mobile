@@ -1,3 +1,4 @@
+// Importy
 import { globalStyles } from "@/constants/theme";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -30,6 +31,7 @@ export default function ResetPasswordScreen() {
     setIsSubmitting(true);
 
     try {
+      // Wysyłanie wiadomości na podany adres e-mail
       await sendPasswordResetEmail(auth, email);
       Alert.alert(
         "Sprawdź skrzynkę",

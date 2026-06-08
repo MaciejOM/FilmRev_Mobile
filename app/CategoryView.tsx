@@ -1,3 +1,4 @@
+// importy
 import { AppColors, globalStyles } from "@/constants/theme";
 import { useFilms } from "@/hooks/useFilms";
 import { useTV } from "@/hooks/useTV";
@@ -21,10 +22,11 @@ export default function CategoryView() {
   const { film, isLoading: isFilmLoading } = useFilms();
   const { Tv, isLoading: isTvLoading } = useTV();
 
-  // Kategorie
+  // useMemo pozwala na filtrowanie i sortowanie tylko przy zmianie danych, co zwiększa wydajność.
   const dataToShow = useMemo(() => {
     if (isFilmLoading || isTvLoading) return [];
 
+    // Mapowanie danych z filmów i seriali do ujednoliconego formatu wyszukiwania
     const moviesData = film.map((f) => ({
       ...f,
       type: "movie",
@@ -37,24 +39,26 @@ export default function CategoryView() {
       searchTitle: t.name,
       searchDate: t.first_air_date,
     }));
+
+    // Bezpieczne parsowanie dat, zapobiegające awariom przy brakujących danych z API
     const safeDate = (dateStr: string) =>
       dateStr ? new Date(dateStr).getTime() : 0;
 
-    // Wyświetlanie dla kategorii "Najnowsze filmy"
+    // Sortowanie chronologiczne dla kategorii "Najnowsze filmy"
     if (category === "latest_movies") {
       return [...moviesData].sort(
         (a, b) => safeDate(b.searchDate) - safeDate(a.searchDate),
       );
     }
 
-    // Wyświetlanie dla kategorii "Najnowsze seriale"
+    // Sortowanie chronologiczne dla kategorii "Najnowsze seriale"
     if (category === "latest_tv") {
       return [...tvData].sort(
         (a, b) => safeDate(b.searchDate) - safeDate(a.searchDate),
       );
     }
 
-    // Wyświetlanie dla kategorii "Najlepiej oceniane"
+    // Łączenie i filtrowanie zbiorów dla kategorii "Najlepiej oceniane" (Wymagana jest min. 1 recenzja przy produkcji, żeby się pojawiłą w tej kategorii)
     if (category === "top_rated") {
       return [...moviesData, ...tvData]
         .filter((item) => (item.vote_average || 0) > 0)

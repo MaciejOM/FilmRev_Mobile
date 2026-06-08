@@ -1,9 +1,18 @@
+// Importy
 import { AppColors, globalStyles } from "@/constants/theme";
 import { auth, db } from "@/hooks/firebaseConfig";
+import { updateMovieAverageRating } from "@/hooks/firebaseDatabase";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { deleteUser, sendPasswordResetEmail, signOut } from "firebase/auth";
+import {
+  EmailAuthProvider,
+  deleteUser,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
+  signOut,
+} from "firebase/auth";
 import {
   collection,
   deleteDoc,
@@ -15,6 +24,7 @@ import {
 } from "firebase/firestore";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   StyleSheet,
   Text,
@@ -24,11 +34,18 @@ import {
 } from "react-native";
 
 export default function SettingsScreen() {
+  // useState'y
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Wylogowywanie
+  // useState'y odpowiadające za sekwencję bezpiecznego usuwania konta
+  const [showDeletePrompt, setShowDeletePrompt] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [confirmDeletePassword, setConfirmDeletePassword] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  // Bezpieczne wylogowanie z usunięciem danych sesyjnych urządzenia
   const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -42,6 +59,11 @@ export default function SettingsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              if (auth.currentUser) {
+                await AsyncStorage.removeItem(
+                  `profile_data_${auth.currentUser.uid}`,
+                );
+              }
               await signOut(auth);
               router.replace("/account");
             } catch (error) {
@@ -55,7 +77,7 @@ export default function SettingsScreen() {
     );
   };
 
-  // Zmiana hasła (wysyłka e-maila)
+  // Automatyczne wysyłanie e-maila z linkiem do resetu hasła
   const handleChangePassword = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const user = auth.currentUser;
@@ -89,7 +111,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // Zmiana nazwy użytkownika
+  // Zmiana nazwy użytkownika w bazie i zaktualizowanie nazwy we wszystkich napisanych recenzjach
   const handleSaveUsername = async () => {
     const user = auth.currentUser;
     if (!user) return;
@@ -111,88 +133,119 @@ export default function SettingsScreen() {
 
       const updatePromises = querySnapshot.docs.map((reviewDoc) =>
         updateDoc(reviewDoc.ref, {
-          username: newName.trim(),
+          nazwa_uzytkownika: newName.trim(),
         }),
       );
 
       await Promise.all(updatePromises);
 
-      Alert.alert(
-        "Sukces",
-        "Twoja nazwa użytkownika została zaktualizowana we wszystkich recenzjach.",
-      );
+      // Aktualizacja lokalnego cache
+      const cacheKey = `profile_data_${user.uid}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      if (cachedData) {
+        const parsed = JSON.parse(cachedData);
+        parsed.user.nazwa_uzytkownika = newName.trim();
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(parsed));
+      }
+
+      Alert.alert("Sukces", "Twoja nazwa użytkownika została zaktualizowana.");
       setIsEditingName(false);
       setNewName("");
     } catch (error) {
       console.error(error);
-      Alert.alert(
-        "Błąd",
-        "Nie udało się zmienić nazwy użytkownika we wszystkich miejscach.",
-      );
+      Alert.alert("Błąd", "Nie udało się zmienić nazwy użytkownika.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Usuwanie konta wraz ze wszystkimi recenzjami
-  const handleDeleteAccount = () => {
+  // Całkowite wymazywanie konta zapobiegające powstawaniu "Danych-Widmo"
+  const confirmAndDeleteAccount = async () => {
+    const user = auth.currentUser;
+    if (!user || !user.email) return;
+
+    if (deletePassword !== confirmDeletePassword) {
+      Alert.alert("Błąd", "Podane hasła nie są identyczne.");
+      return;
+    }
+
+    if (deletePassword.trim() === "") {
+      Alert.alert("Błąd", "Proszę podać hasło.");
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setIsDeletingAccount(true);
 
-    Alert.alert(
-      "Usuwanie konta",
-      "Ta operacja jest NIEODWRACALNA. Stracisz dostęp do swojego konta, ulubionych oraz trwale usuniesz wszystkie swoje recenzje. Czy na pewno chcesz usunąć konto?",
-      [
-        { text: "Anuluj", style: "cancel" },
-        {
-          text: "Usuń trwale",
-          style: "destructive",
-          onPress: async () => {
-            const user = auth.currentUser;
-            if (user) {
-              try {
-                const reviewsRef = collection(db, "reviews");
-                const q = query(reviewsRef, where("userId", "==", user.uid));
-                const querySnapshot = await getDocs(q);
+    try {
+      // Reautentykacja
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        deletePassword,
+      );
+      await reauthenticateWithCredential(user, credential);
 
-                const deletePromises = querySnapshot.docs.map((reviewDoc) =>
-                  deleteDoc(reviewDoc.ref),
-                );
-                await Promise.all(deletePromises);
+      // 1. Usunięcie pamięci lokalnej
+      await AsyncStorage.removeItem(`profile_data_${user.uid}`);
 
-                await deleteDoc(doc(db, "users", user.uid));
+      // 2. Zebranie recenzji użytkownika w celu przygotowania listy filmów do ponownego przeliczenia ocen
+      const reviewsRef = collection(db, "reviews");
+      const q = query(reviewsRef, where("userId", "==", user.uid));
+      const querySnapshot = await getDocs(q);
 
-                await deleteUser(user);
+      const movieIdsToUpdate = new Set<string>();
+      querySnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.movieId) {
+          movieIdsToUpdate.add(data.movieId);
+        }
+      });
 
-                Alert.alert(
-                  "Konto usunięte",
-                  "Twoje konto oraz wszystkie recenzje zostały pomyślnie wykasowane.",
-                );
-                router.replace("/account");
-              } catch (error: any) {
-                console.error("Błąd usuwania konta:", error);
+      // 3. Usuwanie recenzji z Firestore
+      const deletePromises = querySnapshot.docs.map((reviewDoc) =>
+        deleteDoc(reviewDoc.ref),
+      );
+      await Promise.all(deletePromises);
 
-                if (error.code === "auth/requires-recent-login") {
-                  Alert.alert(
-                    "Wymagane ponowne logowanie",
-                    "Ze względów bezpieczeństwa wyloguj się i zaloguj ponownie, aby móc usunąć swoje konto.",
-                  );
-                } else {
-                  Alert.alert(
-                    "Błąd",
-                    "Nie udało się usunąć konta. Spróbuj ponownie później.",
-                  );
-                }
-              }
-            }
-          },
-        },
-      ],
-    );
+      // 4. Masowe przeliczenie nowej średniej ocen wszystkich dotkniętych produkcji
+      const updateRatingPromises = Array.from(movieIdsToUpdate).map((movieId) =>
+        updateMovieAverageRating(movieId),
+      );
+      await Promise.all(updateRatingPromises);
+
+      // 5. Ostateczne skasowanie profilu i konta Auth
+      await deleteDoc(doc(db, "users", user.uid));
+      await deleteUser(user);
+
+      Alert.alert(
+        "Konto usunięte",
+        "Twoje konto, recenzje oraz powiązane średnie ocen zostały pomyślnie i bezpiecznie usunięte.",
+      );
+      router.replace("/account");
+    } catch (error: any) {
+      console.error("Błąd usuwania konta:", error);
+
+      if (
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/invalid-credential"
+      ) {
+        Alert.alert(
+          "Niepoprawne hasło",
+          "Podane hasło jest błędne. Jeśli logowałeś się przez Google, nie możesz usunąć konta w ten sposób (musisz usunąć dostęp przez panel konta Google).",
+        );
+      } else {
+        Alert.alert(
+          "Błąd",
+          "Wystąpił problem podczas usuwania konta. Spróbuj ponownie później.",
+        );
+      }
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   return (
     <View style={globalStyles.container}>
-      {/* Nagłówek */}
       <View style={globalStyles.header}>
         <TouchableOpacity
           style={styles.closeButton}
@@ -204,7 +257,7 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.content}>
-        {/* Zmiana nazwy użytkownika */}
+        {/* Sekcja: Nazwa użytkownika */}
         <TouchableOpacity
           style={styles.settingRow}
           onPress={() => setIsEditingName(!isEditingName)}
@@ -242,7 +295,7 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        {/* Zmiana hasła */}
+        {/* Sekcja: Zmiana hasła */}
         <TouchableOpacity
           style={styles.settingRow}
           onPress={handleChangePassword}
@@ -258,7 +311,7 @@ export default function SettingsScreen() {
           />
         </TouchableOpacity>
 
-        {/* Wersja aplikacji */}
+        {/* Sekcja: Wersja aplikacji */}
         <View style={styles.settingRow}>
           <View style={styles.settingTextContainer}>
             <MaterialIcons name="info-outline" size={24} color="white" />
@@ -267,35 +320,88 @@ export default function SettingsScreen() {
           <Text style={styles.versionText}>1.0.0</Text>
         </View>
 
-        {/* Wylogowywanie */}
+        {/* Sekcja: Wylogowywanie */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <MaterialIcons name="logout" size={24} color="white" />
           <Text style={styles.logoutText}>Wyloguj się</Text>
         </TouchableOpacity>
 
-        {/* Usuwanie konta */}
-        <TouchableOpacity
-          style={styles.deleteAccountButton}
-          onPress={handleDeleteAccount}
-        >
-          <MaterialIcons
-            name="delete-forever"
-            size={24}
-            color={AppColors.buttonDanger}
-          />
-          <Text style={styles.deleteAccountText}>Usuń konto</Text>
-        </TouchableOpacity>
+        {/* Sekcja: Usuwanie konta (system weryfikacyjny) */}
+        {!showDeletePrompt ? (
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowDeletePrompt(true);
+            }}
+          >
+            <MaterialIcons
+              name="delete-forever"
+              size={24}
+              color={AppColors.buttonDanger}
+            />
+            <Text style={styles.deleteAccountText}>Usuń konto</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.deletePromptContainer}>
+            <Text style={styles.deletePromptWarning}>
+              Ta operacja jest NIEODWRACALNA. Podaj swoje hasło, aby potwierdzić
+              usunięcie konta i wymazanie danych.
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Wpisz hasło..."
+              placeholderTextColor={AppColors.textGray}
+              secureTextEntry
+              value={deletePassword}
+              onChangeText={setDeletePassword}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Powtórz hasło..."
+              placeholderTextColor={AppColors.textGray}
+              secureTextEntry
+              value={confirmDeletePassword}
+              onChangeText={setConfirmDeletePassword}
+            />
+            <View style={styles.deletePromptActions}>
+              <TouchableOpacity
+                style={styles.cancelDeleteButton}
+                onPress={() => {
+                  setShowDeletePrompt(false);
+                  setDeletePassword("");
+                  setConfirmDeletePassword("");
+                }}
+              >
+                <Text style={styles.cancelDeleteText}>Anuluj</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.confirmDeleteButton,
+                  isDeletingAccount && { opacity: 0.7 },
+                ]}
+                onPress={confirmAndDeleteAccount}
+                disabled={isDeletingAccount}
+              >
+                {isDeletingAccount ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.confirmDeleteText}>
+                    Potwierdź usunięcie
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
+  content: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
   closeButton: {
     position: "absolute",
     top: 50,
@@ -317,21 +423,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 15,
   },
-  settingTextContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  settingText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  versionText: {
-    color: AppColors.textGray,
-    fontSize: 14,
-    fontWeight: "bold",
-  },
+  settingTextContainer: { flexDirection: "row", alignItems: "center", gap: 10 },
+  settingText: { color: "white", fontSize: 16, fontWeight: "bold" },
+  versionText: { color: AppColors.textGray, fontSize: 14, fontWeight: "bold" },
   editNameContainer: {
     backgroundColor: "#2e303f",
     padding: 15,
@@ -355,10 +449,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: "center",
   },
-  saveButtonText: {
-    color: "white",
-    fontWeight: "bold",
-  },
+  saveButtonText: { color: "white", fontWeight: "bold" },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -369,11 +460,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 20,
   },
-  logoutText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  logoutText: { color: "white", fontSize: 16, fontWeight: "bold" },
   deleteAccountButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -385,10 +472,49 @@ const styles = StyleSheet.create({
     marginTop: 15,
     borderWidth: 1,
     borderColor: AppColors.buttonDanger,
+    height: 56,
   },
   deleteAccountText: {
     color: AppColors.buttonDanger,
     fontSize: 16,
     fontWeight: "bold",
   },
+  deletePromptContainer: {
+    backgroundColor: "rgba(204, 0, 44, 0.1)",
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: AppColors.buttonDanger,
+  },
+  deletePromptWarning: {
+    color: "white",
+    fontSize: 14,
+    marginBottom: 15,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  deletePromptActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 5,
+    gap: 10,
+  },
+  cancelDeleteButton: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: "#3a3c4f",
+    borderRadius: 5,
+    alignItems: "center",
+  },
+  cancelDeleteText: { color: "white", fontWeight: "bold" },
+  confirmDeleteButton: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: AppColors.buttonDanger,
+    borderRadius: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmDeleteText: { color: "white", fontWeight: "bold" },
 });

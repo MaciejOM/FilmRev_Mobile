@@ -1,4 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage"; // <-- Import
+// Importy
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -6,6 +7,7 @@ import {
   syncMediaToFirestore,
 } from "./firebaseDatabase";
 
+// Wylistowane gatunki dla seriali
 const TV_GENRES: Record<number, string> = {
   10759: "Akcja i Przygoda",
   16: "Animacja",
@@ -25,9 +27,12 @@ const TV_GENRES: Record<number, string> = {
   37: "Western",
 };
 
+// Zmienna globalna zapobiegająca wielokrotnej synchronizacji.
+// Pozwala to na stały dostęp do danych bez obciążania zewnętrznego API przy każdym przejściu między ekranami.
 let hasSyncedTVSession = false;
 
 export const useTV = () => {
+  // UseState'y
   const [Tv, setTv] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +40,11 @@ export const useTV = () => {
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
+        // Blokada przed wielokrotnym wywołaniem
         if (!hasSyncedTVSession) {
+          hasSyncedTVSession = true;
+
+          // Pobieranie seriali z TMDB (Popularne)
           try {
             const tmdbKey = process.env.EXPO_PUBLIC_TMDB_API_KEY;
             const response = await fetch(
@@ -44,11 +53,10 @@ export const useTV = () => {
             const data = await response.json();
 
             if (data.results) {
-              syncMediaToFirestore(data.results, "tv", TV_GENRES)
-                .then(() => {
-                  hasSyncedTVSession = true;
-                })
-                .catch((err) => console.error("Błąd synchronizacji:", err));
+              // Synchronizacja nowości z Bazą danych
+              syncMediaToFirestore(data.results, "tv", TV_GENRES).catch((err) =>
+                console.error("Błąd synchronizacji:", err),
+              );
 
               const fbData = await getMediaFromFirestore("tv");
               const localRatings = new Map(
@@ -58,6 +66,7 @@ export const useTV = () => {
                 ]),
               );
 
+              // Formatowanie danych pobranych z API pod strukturę dokumentu w bazie danych
               const mappedData = data.results.map((item: any) => ({
                 id: item.id,
                 name: item.name,
@@ -75,6 +84,7 @@ export const useTV = () => {
                 type: "tv",
               }));
 
+              // Zapisanie kopii zapasowej w pamięci telefonu, w przypadku przejścia w tryb offline
               await AsyncStorage.setItem(
                 "offline_tv",
                 JSON.stringify(mappedData),
@@ -86,9 +96,11 @@ export const useTV = () => {
             }
           } catch (err) {
             console.error("Błąd TMDB:", err);
+            hasSyncedTVSession = false; // W przypadku błędu, wywoływany jest reset
           }
         }
 
+        // Standardowe ładowanie danych po pierwszej synchronizacji
         try {
           const fbData = await getMediaFromFirestore("tv");
           const mappedData = fbData.map((item: any) => ({
@@ -106,8 +118,9 @@ export const useTV = () => {
           await AsyncStorage.setItem("offline_tv", JSON.stringify(mappedData));
           setTv(mappedData);
         } catch (err) {
-          console.error("Brak sieci. Wczytywanie offline...");
+          console.error("Brak sieci. Wczytywanie offline...", err);
 
+          // Wczytywanie danych z pamięci telefonu, w przypadku przejścia w tryb offline
           const offlineData = await AsyncStorage.getItem("offline_tv");
           if (offlineData) {
             setTv(JSON.parse(offlineData));

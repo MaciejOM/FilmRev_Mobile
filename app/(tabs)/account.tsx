@@ -22,6 +22,7 @@ import {
 import { auth } from "@/hooks/firebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// Inicjalizacja sesji przeglądarki niezbędna do poprawnego działania logowania przez Google
 WebBrowser.maybeCompleteAuthSession();
 
 export default function AccountScreen() {
@@ -31,13 +32,13 @@ export default function AccountScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Logowanie google
+  // Konfiguracja logowania przez Google przy użyciu tokenów weryfikacyjnych
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
   });
 
-  // Logowanie przez konto google
+  // Obsługa odpowiedzi z logowania Google i wymiana tokena na autoryzację w Firebase
   useEffect(() => {
     if (response?.type === "success") {
       const { id_token } = response.params;
@@ -58,7 +59,7 @@ export default function AccountScreen() {
     }
   }, [response]);
 
-  // Zapisanie e-maila w polu, jeśli użytkownik wybrał opcje "Zapamiętaj mnie"
+  // Automatyczne wczytywanie zapisanego adresu e-mail, jeśli użytkownik zaznaczył wcześniej opcję "Zapamiętaj mnie"
   useEffect(() => {
     const loadSavedEmail = async () => {
       const savedEmail = await AsyncStorage.getItem("savedEmail");
@@ -70,7 +71,7 @@ export default function AccountScreen() {
     loadSavedEmail();
   }, []);
 
-  // Logowanie standardowe
+  // Standardowe logowanie e-mailem i hasłem wraz z obsługą zapisu do pamięci lokalnej
   const handleLogin = async () => {
     if (email === "" || password === "") {
       Alert.alert("Błąd", "Wypełnij wszystkie pola!");
@@ -81,11 +82,14 @@ export default function AccountScreen() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+
+      // Obsługa opcji "Zapamiętaj mnie"
       if (rememberMe) {
         await AsyncStorage.setItem("savedEmail", email);
       } else {
         await AsyncStorage.removeItem("savedEmail");
       }
+
       setPassword("");
       router.replace("/Profile");
     } catch (error: any) {
@@ -151,7 +155,7 @@ export default function AccountScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Standardowe logowanie */}
+        {/* Przycisk logowania standardowego */}
         <TouchableOpacity
           style={[styles.button, isSubmitting && { opacity: 0.7 }]}
           onPress={handleLogin}
@@ -162,7 +166,7 @@ export default function AccountScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* NOWOŚĆ: Przycisk logowania przez Google */}
+        {/* Przycisk logowania przez Google */}
         <TouchableOpacity
           style={[styles.buttonGoogle, isSubmitting && { opacity: 0.7 }]}
           onPress={() => promptAsync()}
@@ -224,11 +228,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
-  // Styl dla przycisku Google
   buttonGoogle: {
     flexDirection: "row",
     width: "100%",
-    backgroundColor: "#4285F4", // Oficjalny kolor Google
+    backgroundColor: "#4285F4",
     paddingVertical: 15,
     borderRadius: 5,
     alignItems: "center",
@@ -244,10 +247,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 5,
   },
-  checkboxContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  checkboxContainer: { flexDirection: "row", alignItems: "center" },
   checkbox: {
     width: 20,
     height: 20,
@@ -258,18 +258,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  checkboxChecked: {
-    backgroundColor: AppColors.primary,
-  },
-  checkmark: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  rememberText: {
-    color: "#ccc",
-    fontSize: 14,
-  },
+  checkboxChecked: { backgroundColor: AppColors.primary },
+  checkmark: { color: "white", fontSize: 14, fontWeight: "bold" },
+  rememberText: { color: "#ccc", fontSize: 14 },
   forgotPasswordText: {
     color: AppColors.primary,
     fontSize: 14,
@@ -291,7 +282,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 16,
   },
-  eyeIcon: {
-    padding: 10,
-  },
+  eyeIcon: { padding: 10 },
 });

@@ -7,7 +7,6 @@ import React from "react";
 import {
   ActivityIndicator,
   FlatList,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,6 +15,8 @@ import {
 
 export default function Index() {
   const router = useRouter();
+
+  // Pobieranie danych z lokalnych hooków synchronizujących
   const { film, isLoading: isFilmLoading, error: filmError } = useFilms();
   const { Tv, isLoading: isTvLoading, error: tvError } = useTV();
 
@@ -36,6 +37,7 @@ export default function Index() {
     );
   }
 
+  // Zunifikowanie struktury danych do wspólnego formatu wyszukiwania dla FlatList
   const moviesData = film.map((f) => ({
     ...f,
     type: "movie",
@@ -49,9 +51,11 @@ export default function Index() {
     searchDate: t.first_air_date,
   }));
 
+  // Bezpieczne parsowanie dat, aby zapobiec awariom przy brakujących danych z TMDB
   const safeDate = (dateStr: string) =>
     dateStr ? new Date(dateStr).getTime() : 0;
 
+  // Sortowanie produkcji według najnowszej daty premiery
   const latestMovies = [...moviesData].sort(
     (a, b) => safeDate(b.searchDate) - safeDate(a.searchDate),
   );
@@ -60,9 +64,35 @@ export default function Index() {
     (a, b) => safeDate(b.searchDate) - safeDate(a.searchDate),
   );
 
+  // Filtrowanie i sortowanie produkcji z najwyższą oceną
   const topRated = [...moviesData, ...tvData]
     .filter((item) => (item.vote_average || 0) > 0)
     .sort((a, b) => b.vote_average - a.vote_average);
+
+  // Dynamiczne budowanie sekcji ekranu głównego
+  const sections = [
+    {
+      id: "latest_movies",
+      title: "Najnowsze filmy",
+      param: "latest_movies",
+      data: latestMovies.slice(0, 4),
+    },
+    {
+      id: "latest_tv",
+      title: "Najnowsze seriale",
+      param: "latest_tv",
+      data: latestTv.slice(0, 4),
+    },
+  ];
+
+  if (topRated.length > 0) {
+    sections.push({
+      id: "top_rated",
+      title: "Najlepiej oceniane",
+      param: "top_rated",
+      data: topRated.slice(0, 4),
+    });
+  }
 
   const SectionHeader = ({
     title,
@@ -85,7 +115,6 @@ export default function Index() {
     </TouchableOpacity>
   );
 
-  // Renderowanie katy produkcji
   const renderCard = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={globalStyles.filmBanner}
@@ -120,44 +149,24 @@ export default function Index() {
         <Text style={globalStyles.headerText}>Główna</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
-        <SectionHeader title="Najnowsze filmy" categoryParams="latest_movies" />
-        <FlatList
-          data={latestMovies.slice(0, 4)}
-          keyExtractor={(item) => `latestMovie_${item.id}`}
-          horizontal={true}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingLeft: 20, paddingRight: 5 }}
-          renderItem={renderCard}
-        />
-
-        <SectionHeader title="Najnowsze seriale" categoryParams="latest_tv" />
-        <FlatList
-          data={latestTv.slice(0, 4)}
-          keyExtractor={(item) => `latestTv_${item.id}`}
-          horizontal={true}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingLeft: 20, paddingRight: 5 }}
-          renderItem={renderCard}
-        />
-
-        {topRated.length > 0 && (
-          <>
-            <SectionHeader
-              title="Najlepiej oceniane"
-              categoryParams="top_rated"
-            />
+      <FlatList
+        data={sections}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 30 }}
+        renderItem={({ item }) => (
+          <View>
+            <SectionHeader title={item.title} categoryParams={item.param} />
             <FlatList
-              data={topRated.slice(0, 4)}
-              keyExtractor={(item) => `topRated_${item.type}_${item.id}`}
+              data={item.data}
+              keyExtractor={(mediaItem) => `${item.id}_${mediaItem.id}`}
               horizontal={true}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingLeft: 20, paddingRight: 5 }}
               renderItem={renderCard}
             />
-          </>
+          </View>
         )}
-      </ScrollView>
+      />
     </View>
   );
 }

@@ -1,13 +1,15 @@
 import Skeleton from "@/components/Skeleton";
 import { AppColors, globalStyles } from "@/constants/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
-  ScrollView,
+  DeviceEventEmitter,
+  FlatList,
   StyleSheet,
   Text,
   TextInput,
@@ -17,7 +19,16 @@ import {
 
 import { auth, db } from "@/hooks/firebaseConfig";
 import { getUserList, getUserReviews } from "@/hooks/firebaseDatabase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { signOut } from "firebase/auth";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 
 const DEFAULT_BIO = "Brak opisu";
 
@@ -33,53 +44,113 @@ export default function ProfileScreen() {
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [editBioText, setEditBioText] = useState("");
 
-  // Ładowanie danych profilowych użytkownika
-  const loadUserData = async () => {
+  // Ciche pobieranie najświeższych danych z Firebase w tle po załadowaniu lokalnego widoku
+  const fetchFreshData = async (userAuth: any) => {
     try {
-      const currentUser = auth.currentUser;
+      const userDocRef = doc(db, "users", userAuth.uid);
+      const userDocSnap = await getDoc(userDocRef);
 
-      if (currentUser) {
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
 
-        if (userDocSnap.exists()) {
-          setUser(userDocSnap.data());
+        const favData = await getUserList(userAuth.uid, "favourites");
+        const watchData = await getUserList(userAuth.uid, "watchlist");
+        const reviewsData = await getUserReviews(userAuth.uid);
 
-          const favData = await getUserList(currentUser.uid, "favourites");
-          const watchData = await getUserList(currentUser.uid, "watchlist");
-          const reviewsData = await getUserReviews(currentUser.uid);
+        const newFavPreview = [...favData.movies, ...favData.tv].slice(0, 5);
+        const newWatchPreview = [...watchData.movies, ...watchData.tv].slice(
+          0,
+          5,
+        );
+        const newReviewCount = reviewsData.length;
+        const newLatestReview = reviewsData.length > 0 ? reviewsData[0] : null;
 
-          setFavouritesPreview([...favData.movies, ...favData.tv].slice(0, 5));
-          setWatchlistPreview(
-            [...watchData.movies, ...watchData.tv].slice(0, 5),
-          );
+        setUser(userData);
+        setFavouritesPreview(newFavPreview);
+        setWatchlistPreview(newWatchPreview);
+        setReviewCount(newReviewCount);
+        setLatestReview(newLatestReview);
 
-          setReviewCount(reviewsData.length);
-          setLatestReview(reviewsData.length > 0 ? reviewsData[0] : null);
-        } else {
-          setUser(null);
-        }
+        // Zapis najnowszych danych do AsyncStorage
+        const cacheKey = `profile_data_${userAuth.uid}`;
+        await AsyncStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            user: userData,
+            favouritesPreview: newFavPreview,
+            watchlistPreview: newWatchPreview,
+            reviewCount: newReviewCount,
+            latestReview: newLatestReview,
+          }),
+        );
       } else {
+        // Zabezpieczenie przed tzw. "kontem-widmo" (konto usunięte, ale sesja pozostała na urządzeniu)
+        console.warn("Wykryto konto-widmo. Wymuszanie wylogowania...");
+        await AsyncStorage.removeItem(`profile_data_${userAuth.uid}`);
+        await signOut(auth);
         setUser(null);
+        router.replace("/account");
       }
     } catch (error) {
-      console.error("Błąd podczas ładowania profilu:", error);
-      Alert.alert("Błąd", "Nie udało się pobrać danych profilu.");
+      console.error("Błąd tła (Profile):", error);
+    }
+  };
+
+  // Ładowanie profilu w architekturze Stale-While-Revalidate (najpierw cache, potem świeże dane)
+  const loadUserData = useCallback(async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const cacheKey = `profile_data_${currentUser.uid}`;
+        const cachedData = await AsyncStorage.getItem(cacheKey);
+
+        // Natychmiastowe pokazanie UI na podstawie danych z pamięci telefonu
+        if (cachedData) {
+          const parsed = JSON.parse(cachedData);
+          setUser(parsed.user);
+          setFavouritesPreview(parsed.favouritesPreview);
+          setWatchlistPreview(parsed.watchlistPreview);
+          setReviewCount(parsed.reviewCount);
+          setLatestReview(parsed.latestReview);
+          setIsLoading(false);
+        }
+
+        // Ciche odpytanie bazy o nowe dane
+        await fetchFreshData(currentUser);
+      } else {
+        setUser(null);
+        router.replace("/account");
+      }
+    } catch (error) {
+      console.error("Błąd loadUserData:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       loadUserData();
-    }, []),
+    }, [loadUserData]),
   );
 
-  // Ustawianie zdjęcia profilowego
+  // Nasłuchiwanie na sygnały (np. nowa recenzja) w celu odświeżenia UI bez ponownego wejścia na ekran
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      "refreshProfile",
+      () => {
+        if (auth.currentUser) {
+          fetchFreshData(auth.currentUser);
+        }
+      },
+    );
+    return () => subscription.remove();
+  }, []);
+
+  // Wybór zdjęcia profilowego i kaskadowa aktualizacja we wszystkich recenzjach użytkownika
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
@@ -88,35 +159,56 @@ export default function ProfileScreen() {
     if (!result.canceled && auth.currentUser) {
       const newUri = result.assets[0].uri;
 
+      // Optymistyczna zmiana w interfejsie profilu
       setUser((prev: any) => ({ ...prev, avatar: newUri }));
 
       try {
         const userDocRef = doc(db, "users", auth.currentUser.uid);
         await updateDoc(userDocRef, { avatar: newUri });
+
+        // Pobranie i aktualizacja avatara we wszystkich dotychczasowych recenzjach
+        const reviewsRef = collection(db, "reviews");
+        const q = query(
+          reviewsRef,
+          where("userId", "==", auth.currentUser.uid),
+        );
+        const querySnapshot = await getDocs(q);
+
+        const updatePromises = querySnapshot.docs.map((reviewDoc) =>
+          updateDoc(reviewDoc.ref, {
+            avatar: newUri,
+          }),
+        );
+
+        await Promise.all(updatePromises);
+
+        DeviceEventEmitter.emit("refreshProfile");
       } catch (error) {
-        console.error("Błąd zapisu avatara do Firestore:", error);
-        Alert.alert("Błąd", "Nie udało się zapisać zdjęcia w bazie danych.");
+        Alert.alert(
+          "Błąd",
+          "Nie udało się zaktualizować zdjęcia profilowego we wszystkich recenzjach.",
+        );
+        console.error("Błąd aktualizacji avatara: ", error);
       }
     }
   };
 
-  // Zapisywanie zmian w opisie profilu
+  // Zapisywanie nowego opisu użytkownika (Bio)
   const handleSaveBio = async () => {
     if (!auth.currentUser) return;
-
     try {
       const userDocRef = doc(db, "users", auth.currentUser.uid);
       await updateDoc(userDocRef, { opis: editBioText.trim() });
 
       setUser((prev: any) => ({ ...prev, opis: editBioText.trim() }));
       setIsEditingBio(false);
-    } catch (error) {
-      console.error("Błąd zapisu opisu:", error);
+      DeviceEventEmitter.emit("refreshProfile");
+    } catch (err) {
+      console.error(err);
       Alert.alert("Błąd", "Nie udało się zapisać nowego opisu.");
     }
   };
 
-  // Animacje Skeleton przy ładowaniu profilu
   if (isLoading || (!user && auth.currentUser)) {
     return (
       <View style={globalStyles.container}>
@@ -132,37 +224,40 @@ export default function ProfileScreen() {
         >
           <Skeleton width={150} height={25} style={{ marginBottom: 5 }} />
         </View>
-        <View style={styles.scrollContent}>
-          <View style={styles.topProfileSection}>
-            <Skeleton
-              width={80}
-              height={80}
-              borderRadius={40}
-              style={{ marginRight: 20 }}
-            />
-            <View style={{ flex: 1, flexDirection: "row", gap: 30 }}>
-              <Skeleton width={50} height={40} />
-              <Skeleton width={70} height={40} />
+        <FlatList
+          data={["skeleton_layout"]}
+          keyExtractor={(item) => item}
+          contentContainerStyle={styles.scrollContent}
+          renderItem={() => (
+            <View>
+              <View style={styles.topProfileSection}>
+                <Skeleton
+                  width={80}
+                  height={80}
+                  borderRadius={40}
+                  style={{ marginRight: 20 }}
+                />
+                <View style={{ flex: 1, flexDirection: "row", gap: 30 }}>
+                  <Skeleton width={50} height={40} />
+                  <Skeleton width={70} height={40} />
+                </View>
+              </View>
+              <Skeleton width="100%" height={15} style={{ marginTop: 10 }} />
+              <Skeleton width="80%" height={15} style={{ marginTop: 10 }} />
+              <View style={styles.separator} />
+              <Skeleton width={100} height={20} style={{ marginBottom: 15 }} />
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Skeleton width={100} height={150} borderRadius={8} />
+                <Skeleton width={100} height={150} borderRadius={8} />
+                <Skeleton width={100} height={150} borderRadius={8} />
+              </View>
             </View>
-          </View>
-
-          <Skeleton width="100%" height={15} style={{ marginTop: 10 }} />
-          <Skeleton width="80%" height={15} style={{ marginTop: 10 }} />
-
-          <View style={styles.separator} />
-
-          <Skeleton width={100} height={20} style={{ marginBottom: 15 }} />
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <Skeleton width={100} height={150} borderRadius={8} />
-            <Skeleton width={100} height={150} borderRadius={8} />
-            <Skeleton width={100} height={150} borderRadius={8} />
-          </View>
-        </View>
+          )}
+        />
       </View>
     );
   }
 
-  // Jeśli użytkownik nie jest zalogowany, ale znajdzie się na ekranie profilu, wyskoczy ten komunikat.
   if (!user && !auth.currentUser) {
     return (
       <View style={globalStyles.centerContainer}>
@@ -171,7 +266,6 @@ export default function ProfileScreen() {
     );
   }
 
-  // Wyświetlanie podglądowej recenzji.
   const renderPreviewList = (list: any[]) => {
     if (list.length === 0) {
       return (
@@ -179,14 +273,14 @@ export default function ProfileScreen() {
       );
     }
     return (
-      <ScrollView
+      <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.horizontalList}
-      >
-        {list.map((item) => (
+        data={list}
+        keyExtractor={(item) => item.id || item.tmdb_id?.toString()}
+        renderItem={({ item }) => (
           <TouchableOpacity
-            key={item.id}
             style={styles.posterPlaceholder}
             onPress={() =>
               router.push({
@@ -208,9 +302,181 @@ export default function ProfileScreen() {
               style={styles.previewImage}
             />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        )}
+      />
     );
+  };
+
+  const profileSections = [
+    { id: "top_stats" },
+    { id: "bio" },
+    { id: "sep1" },
+    { id: "favourites" },
+    { id: "sep2" },
+    { id: "watchlist" },
+    { id: "sep3" },
+    { id: "my_reviews" },
+  ];
+
+  const renderProfileBlock = ({ item }: { item: { id: string } }) => {
+    switch (item.id) {
+      case "top_stats":
+        return (
+          <View style={styles.topProfileSection}>
+            <TouchableOpacity
+              onPress={pickImage}
+              style={styles.avatarContainer}
+            >
+              {user.avatar ? (
+                <Image
+                  source={{ uri: user.avatar }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarPlaceholderText}>+</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.statsContainer}>
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>{reviewCount}</Text>
+                <Text style={styles.statLabel}>Recenzje</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statNumber}>{user.data_dolaczenia}</Text>
+                <Text style={styles.statLabel}>Dołączono</Text>
+              </View>
+            </View>
+          </View>
+        );
+
+      case "bio":
+        return (
+          <View style={styles.bioContainer}>
+            {isEditingBio ? (
+              <View>
+                <TextInput
+                  style={styles.bioInput}
+                  multiline
+                  value={editBioText}
+                  onChangeText={setEditBioText}
+                  placeholder="Napisz coś o sobie..."
+                  placeholderTextColor={AppColors.textGray}
+                  maxLength={128}
+                  autoFocus
+                />
+                {128 - editBioText.length <= 30 && (
+                  <Text
+                    style={{
+                      color: AppColors.textGray,
+                      fontSize: 11,
+                      textAlign: "right",
+                      marginTop: 2,
+                    }}
+                  >
+                    Pozostało znaków: {128 - editBioText.length}
+                  </Text>
+                )}
+                <View style={styles.bioActions}>
+                  <TouchableOpacity onPress={() => setIsEditingBio(false)}>
+                    <Text style={styles.bioCancelText}>Anuluj</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleSaveBio}>
+                    <Text style={styles.bioSaveText}>Zapisz</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => {
+                  setEditBioText(user.opis || DEFAULT_BIO);
+                  setIsEditingBio(true);
+                }}
+              >
+                <Text style={styles.bioText}>{user.opis || DEFAULT_BIO}</Text>
+                <Text style={styles.editBioHint}>
+                  <MaterialIcons name="edit" size={16} color="white" /> Edytuj
+                  opis
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+
+      case "sep1":
+      case "sep2":
+      case "sep3":
+        return <View style={styles.separator} />;
+
+      case "favourites":
+        return (
+          <>
+            <TouchableOpacity
+              style={styles.sectionHeaderRow}
+              onPress={() => router.push("/Favourites")}
+            >
+              <Text style={styles.sectionTitle}>Ulubione</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+            {renderPreviewList(favouritesPreview)}
+          </>
+        );
+
+      case "watchlist":
+        return (
+          <>
+            <TouchableOpacity
+              style={styles.sectionHeaderRow}
+              onPress={() => router.push("/Watchlist")}
+            >
+              <Text style={styles.sectionTitle}>Do obejrzenia</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+            {renderPreviewList(watchlistPreview)}
+          </>
+        );
+
+      case "my_reviews":
+        return (
+          <>
+            <TouchableOpacity
+              style={styles.sectionHeaderRow}
+              onPress={() => router.push("/MyReviews")}
+            >
+              <Text style={styles.sectionTitle}>Moje recenzje</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            {latestReview ? (
+              <TouchableOpacity
+                style={styles.mockReviewContainer}
+                onPress={() => router.push("/MyReviews")}
+              >
+                <View style={styles.mockReviewHeader}>
+                  <Text style={styles.mockReviewTitle}>
+                    Dla: {latestReview.movieData?.nazwa || "Nieznany tytuł"}
+                  </Text>
+                  <View style={{ flexDirection: "row" }}>
+                    <Text style={{ color: "#FFD700", fontSize: 16 }}>
+                      {latestReview.ocena}/5 ★
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.mockReviewText} numberOfLines={3}>
+                  {latestReview.tresc}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.emptyListText}>
+                Nie masz jeszcze żadnych recenzji.
+              </Text>
+            )}
+          </>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
@@ -243,136 +509,20 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.topProfileSection}>
-          <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
-            {user.avatar ? (
-              <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarPlaceholderText}>+</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.statsContainer}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{reviewCount}</Text>
-              <Text style={styles.statLabel}>Recenzje</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{user.data_dolaczenia}</Text>
-              <Text style={styles.statLabel}>Dołączono</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.bioContainer}>
-          {isEditingBio ? (
-            <View>
-              <TextInput
-                style={styles.bioInput}
-                multiline
-                value={editBioText}
-                onChangeText={setEditBioText}
-                placeholder="Napisz coś o sobie..."
-                placeholderTextColor={AppColors.textGray}
-                maxLength={150}
-                autoFocus
-              />
-              <View style={styles.bioActions}>
-                <TouchableOpacity onPress={() => setIsEditingBio(false)}>
-                  <Text style={styles.bioCancelText}>Anuluj</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleSaveBio}>
-                  <Text style={styles.bioSaveText}>Zapisz</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={() => {
-                setEditBioText(user.opis || DEFAULT_BIO);
-                setIsEditingBio(true);
-              }}
-            >
-              <Text style={styles.bioText}>{user.opis || DEFAULT_BIO}</Text>
-              <Text style={styles.editBioHint}>
-                <MaterialIcons name="edit" size={16} color="white" /> Edytuj
-                opis
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.separator} />
-
-        <TouchableOpacity
-          style={styles.sectionHeaderRow}
-          onPress={() => router.push("/Favourites")}
-        >
-          <Text style={styles.sectionTitle}>Ulubione</Text>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-        {renderPreviewList(favouritesPreview)}
-
-        <View style={styles.separator} />
-
-        <TouchableOpacity
-          style={styles.sectionHeaderRow}
-          onPress={() => router.push("/Watchlist")}
-        >
-          <Text style={styles.sectionTitle}>Do obejrzenia</Text>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-        {renderPreviewList(watchlistPreview)}
-
-        <View style={styles.separator} />
-
-        <TouchableOpacity
-          style={styles.sectionHeaderRow}
-          onPress={() => router.push("/MyReviews")}
-        >
-          <Text style={styles.sectionTitle}>Moje recenzje</Text>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-
-        {latestReview ? (
-          <TouchableOpacity
-            style={styles.mockReviewContainer}
-            onPress={() => router.push("/MyReviews")}
-          >
-            <View style={styles.mockReviewHeader}>
-              <Text style={styles.mockReviewTitle}>
-                Dla: {latestReview.movieData?.nazwa || "Nieznany tytuł"}
-              </Text>
-              <View style={{ flexDirection: "row" }}>
-                <Text style={{ color: "#FFD700", fontSize: 16 }}>
-                  {latestReview.ocena}/5 ★
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.mockReviewText} numberOfLines={3}>
-              {latestReview.tresc}
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <Text style={styles.emptyListText}>
-            Nie masz jeszcze żadnych recenzji.
-          </Text>
-        )}
-      </ScrollView>
+      <FlatList
+        data={profileSections}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.scrollContent}
+        renderItem={renderProfileBlock}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   SettingsButton: { marginRight: 20, paddingBottom: 2 },
-  SettingsText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  SettingsText: { color: "white", fontSize: 16, fontWeight: "bold" },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 },
-
   topProfileSection: {
     flexDirection: "row",
     alignItems: "center",
@@ -392,7 +542,6 @@ const styles = StyleSheet.create({
   },
   avatarImage: { width: "100%", height: "100%" },
   avatarPlaceholderText: { fontSize: 30, color: AppColors.textGray },
-
   statsContainer: {
     flex: 1,
     flexDirection: "row",
@@ -402,7 +551,6 @@ const styles = StyleSheet.create({
   statBox: { alignItems: "center" },
   statNumber: { color: "white", fontSize: 16, fontWeight: "bold" },
   statLabel: { color: AppColors.textGray, fontSize: 12, marginTop: 2 },
-
   bioContainer: { marginBottom: 10 },
   bioText: { color: "#ddd", fontSize: 14, lineHeight: 20 },
   editBioHint: {
@@ -439,14 +587,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     padding: 5,
   },
-
   separator: {
     height: 1,
     backgroundColor: "#3a3c4f",
     width: "100%",
     marginVertical: 15,
   },
-
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -460,7 +606,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     lineHeight: 24,
   },
-
   horizontalList: { marginBottom: 5 },
   posterPlaceholder: {
     width: 100,
@@ -477,7 +622,6 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginBottom: 15,
   },
-
   mockReviewContainer: {
     marginTop: 10,
     backgroundColor: "#3a3c4f",

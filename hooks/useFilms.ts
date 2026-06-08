@@ -1,4 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage"; // <-- Import AsyncStorage
+// importy
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -6,6 +7,7 @@ import {
   syncMediaToFirestore,
 } from "./firebaseDatabase";
 
+// Wylistowane gatunki dla filmów
 const MOVIE_GENRES: Record<number, string> = {
   28: "Akcja",
   12: "Przygodowy",
@@ -28,9 +30,12 @@ const MOVIE_GENRES: Record<number, string> = {
   37: "Western",
 };
 
+// Zmienna globalna zapobiegająca wielokrotnej synchronizacji.
+// Pozwala to na stały dostęp do danych bez obciążania zewnętrznego API przy każdym przejściu między ekranami.
 let hasSyncedMoviesSession = false;
 
 export const useFilms = () => {
+  // UseState'y
   const [film, setFilm] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +43,12 @@ export const useFilms = () => {
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
+        // Blokada przed wielokrotnym wywołaniem
         if (!hasSyncedMoviesSession) {
+          hasSyncedMoviesSession = true;
+
           try {
+            // Pobieranie filmów z TMDB (Popularne)
             const tmdbKey = process.env.EXPO_PUBLIC_TMDB_API_KEY;
             const response = await fetch(
               `https://api.themoviedb.org/3/movie/popular?api_key=${tmdbKey}&language=pl-PL&page=1`,
@@ -47,11 +56,10 @@ export const useFilms = () => {
             const data = await response.json();
 
             if (data.results) {
-              syncMediaToFirestore(data.results, "movie", MOVIE_GENRES)
-                .then(() => {
-                  hasSyncedMoviesSession = true;
-                })
-                .catch((err) => console.error("Błąd synchronizacji:", err));
+              // Synchronizacja nowości z bazą danych
+              syncMediaToFirestore(data.results, "movie", MOVIE_GENRES).catch(
+                (err) => console.error("Błąd synchronizacji:", err),
+              );
 
               const fbData = await getMediaFromFirestore("movie");
               const localRatings = new Map(
@@ -61,6 +69,7 @@ export const useFilms = () => {
                 ]),
               );
 
+              // Formatowanie danych pobranych z API pod strukturę dokumentu w bazie danych
               const mappedData = data.results.map((item: any) => ({
                 id: item.id,
                 title: item.title,
@@ -78,6 +87,7 @@ export const useFilms = () => {
                 type: "movie",
               }));
 
+              // Zapisanie kopii zapasowej w pamięci telefonu, w przypadku przejścia w tryb offline
               await AsyncStorage.setItem(
                 "offline_movies",
                 JSON.stringify(mappedData),
@@ -89,9 +99,11 @@ export const useFilms = () => {
             }
           } catch (err) {
             console.error("Błąd TMDB:", err);
+            hasSyncedMoviesSession = false; // W przypadku błędu, wywoływany jest reset
           }
         }
 
+        // Standardowe ładowanie danych po pierwszej synchronizacji
         try {
           const fbData = await getMediaFromFirestore("movie");
           const mappedData = fbData.map((item: any) => ({
@@ -112,8 +124,9 @@ export const useFilms = () => {
           );
           setFilm(mappedData);
         } catch (err) {
-          console.error("Błąd sieci. Próba wczytania danych offline...");
+          console.error("Błąd sieci. Próba wczytania danych offline...", err);
 
+          // Wczytywanie danych z pamięci telefonu, w przypadku przejścia w tryb offline
           const offlineData = await AsyncStorage.getItem("offline_movies");
           if (offlineData) {
             setFilm(JSON.parse(offlineData));
