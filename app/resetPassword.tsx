@@ -99,6 +99,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginBottom: 15,
     fontSize: 16,
+    color: "black",
   },
   button: {
     backgroundColor: "#a83350",

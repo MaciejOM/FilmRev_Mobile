@@ -17,7 +17,7 @@ import {
   View,
 } from "react-native";
 
-import { auth, db } from "@/hooks/firebaseConfig";
+import { auth, db, storage } from "@/hooks/firebaseConfig";
 import { getUserList, getUserReviews } from "@/hooks/firebaseDatabase";
 import { signOut } from "firebase/auth";
 import {
@@ -29,6 +29,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 const DEFAULT_BIO = "Brak opisu";
 
@@ -148,6 +149,7 @@ export default function ProfileScreen() {
   }, []);
 
   // Wybór zdjęcia profilowego i kaskadowa aktualizacja we wszystkich recenzjach użytkownika
+  // Wybór zdjęcia profilowego, przesłanie na serwer (Storage) i kaskadowa aktualizacja we wszystkich recenzjach użytkownika
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -157,16 +159,23 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled && auth.currentUser) {
-      const newUri = result.assets[0].uri;
+      const localUri = result.assets[0].uri;
 
-      // Optymistyczna zmiana w interfejsie profilu
-      setUser((prev: any) => ({ ...prev, avatar: newUri }));
+      setUser((prev: any) => ({ ...prev, avatar: localUri }));
 
       try {
-        const userDocRef = doc(db, "users", auth.currentUser.uid);
-        await updateDoc(userDocRef, { avatar: newUri });
+        const response = await fetch(localUri);
+        const blob = await response.blob();
 
-        // Pobranie i aktualizacja avatara we wszystkich dotychczasowych recenzjach
+        const fileRef = ref(storage, `avatars/${auth.currentUser.uid}.jpg`);
+
+        await uploadBytes(fileRef, blob);
+
+        const publicUrl = await getDownloadURL(fileRef);
+
+        const userDocRef = doc(db, "users", auth.currentUser.uid);
+        await updateDoc(userDocRef, { avatar: publicUrl });
+
         const reviewsRef = collection(db, "reviews");
         const q = query(
           reviewsRef,
@@ -176,7 +185,7 @@ export default function ProfileScreen() {
 
         const updatePromises = querySnapshot.docs.map((reviewDoc) =>
           updateDoc(reviewDoc.ref, {
-            avatar: newUri,
+            avatar: publicUrl,
           }),
         );
 
@@ -186,7 +195,7 @@ export default function ProfileScreen() {
       } catch (error) {
         Alert.alert(
           "Błąd",
-          "Nie udało się zaktualizować zdjęcia profilowego we wszystkich recenzjach.",
+          "Nie udało się przesłać zdjęcia na serwer i zaktualizować recenzji.",
         );
         console.error("Błąd aktualizacji avatara: ", error);
       }
@@ -298,7 +307,7 @@ export default function ProfileScreen() {
             }
           >
             <Image
-              source={{ uri: "https://image.tmdb.org/t/p/w500/" + item.plakat }}
+              source={{ uri: "https://image.tmdb.org/t/p/w154/" + item.plakat }}
               style={styles.previewImage}
             />
           </TouchableOpacity>

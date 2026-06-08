@@ -21,7 +21,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.maciejom.FilmRev"
+      "package": "com.maciejom.FilmRev",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",

@@ -120,7 +120,7 @@ export default function CategoryView() {
             >
               <Image
                 source={{
-                  uri: "https://image.tmdb.org/t/p/w500/" + item.poster_path,
+                  uri: "https://image.tmdb.org/t/p/w154/" + item.poster_path,
                 }}
                 style={[globalStyles.filmImage, { height: 160 }]}
               />

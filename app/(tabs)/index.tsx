@@ -134,7 +134,7 @@ export default function Index() {
       }
     >
       <Image
-        source={{ uri: "https://image.tmdb.org/t/p/w500/" + item.poster_path }}
+        source={{ uri: "https://image.tmdb.org/t/p/w154/" + item.poster_path }}
         style={globalStyles.filmImage}
       />
       {item.vote_average > 0 && (
