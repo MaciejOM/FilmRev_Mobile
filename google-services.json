@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "59810252191",
+    "project_id": "filmrev-fb663",
+    "storage_bucket": "filmrev-fb663.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:59810252191:android:edcbcafa989430f41aa9aa",
+        "android_client_info": {
+          "package_name": "com.maciejom.FilmRev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "59810252191-5k5759vjkhg24gp9m421cb64rvufv9ta.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpiGVbFLxHOF-Ygqy6C211ChD2a_wVXiY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "59810252191-5k5759vjkhg24gp9m421cb64rvufv9ta.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
