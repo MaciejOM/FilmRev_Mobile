@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "59810252191-b9cev5vff7gt527emq2r80512etdg6fj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.maciejom.FilmRev",
+            "certificate_hash": "a3b8cdd39583ed03ae4511bd2297fc65ac34d313"
+          }
+        },
+        {
           "client_id": "59810252191-5k5759vjkhg24gp9m421cb64rvufv9ta.apps.googleusercontent.com",
           "client_type": 3
         }
