@@ -8,11 +8,13 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { useAuth } from "@/hooks/AuthContext";
 import { auth } from "@/hooks/firebaseConfig";
 import { getUserList } from "@/hooks/firebaseDatabase";
 
-export default function Watchlist() {
+export default function Watched() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
+  const { user } = useAuth();
   const { numGridColumns, gridItemWidth } = useResponsive();
   const itemWidth = gridItemWidth(20, 15);
 
@@ -35,11 +37,11 @@ export default function Watchlist() {
         throw new Error("Brak sieci");
       }
 
-      const data = await getUserList(targetUid, "watchlist");
+      const data = await getUserList(targetUid, "watched" as any);
       setMovies(data.movies);
       setTvShows(data.tv);
     } catch (err: any) {
-      console.error("Błąd pobierania listy do obejrzenia:", err);
+      console.error("Błąd pobierania listy obejrzanych:", err);
       setError("Brak połączenia z siecią. Nie udało się załadować danych.");
     } finally {
       setIsLoading(false);
@@ -55,8 +57,8 @@ export default function Watchlist() {
   const dataToShow = useMemo(() => (activeTab === "movie" ? movies : tvShows), [activeTab, movies, tvShows]);
 
   const renderGridItem = useCallback(({ item }: { item: any }) => {
-    if (!item) return null;
-
+    if (!item) return null; // Zabezpieczenie przed pustymi/uszkodzonymi elementami bazy
+    
     return (
       <TouchableOpacity
         style={[styles.gridItem, { width: itemWidth }]}
@@ -91,7 +93,7 @@ export default function Watchlist() {
         <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
           <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
         </TouchableOpacity>
-        <Text style={globalStyles.headerText2}>Do obejrzenia</Text>
+        <Text style={globalStyles.headerText2}>Obejrzane</Text>
       </View>
 
       {isLoading ? (
@@ -101,9 +103,6 @@ export default function Watchlist() {
           numColumns={numGridColumns}
           columnWrapperStyle={{ gap: 15, justifyContent: "flex-start" }}
           contentContainerStyle={styles.scrollContent}
-          ListHeaderComponent={
-            <Skeleton width={120} height={20} borderRadius={4} style={{ marginBottom: 15, marginTop: 10 }} />
-          }
           renderItem={() => <Skeleton style={[styles.gridItem, { width: itemWidth }]} />}
         />
       ) : error ? (
@@ -115,7 +114,7 @@ export default function Watchlist() {
         </View>
       ) : movies.length === 0 && tvShows.length === 0 ? (
         <View style={globalStyles.centerContainer}>
-          <Text style={globalStyles.emptyText}>Brak tytułów do obejrzenia.</Text>
+          <Text style={globalStyles.emptyText}>Brak obejrzanych tytułów.</Text>
         </View>
       ) : (
         <View style={{ flex: 1 }}>
@@ -138,7 +137,7 @@ export default function Watchlist() {
             maxToRenderPerBatch={9}
             windowSize={5}
             removeClippedSubviews
-            ListEmptyComponent={<Text style={globalStyles.emptyText}>Brak tytułów na liście w tej kategorii.</Text>}
+            ListEmptyComponent={<Text style={globalStyles.emptyText}>Brak tytułów w tej kategorii.</Text>}
             renderItem={renderGridItem}
           />
         </View>

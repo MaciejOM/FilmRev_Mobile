@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { auth, db } from "@/hooks/firebaseConfig";
+import NetInfo from "@react-native-community/netinfo";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 
@@ -28,11 +29,14 @@ export default function RegisterScreen() {
 
   // Tworzenie konta w Firebase Auth oraz inicjalizacja struktury profilu w Firestore
   const handleRegister = async () => {
+    const cleanEmail = email.trim();
+    const cleanUsername = username.trim();
+
     if (password !== confirmPassword) {
       Alert.alert("Błąd", "Hasła nie są identyczne!");
       return;
     }
-    if (username === "" || email === "" || password === "") {
+    if (cleanUsername === "" || cleanEmail === "" || password === "") {
       Alert.alert("Błąd", "Wypełnij wszystkie pola!");
       return;
     }
@@ -41,18 +45,24 @@ export default function RegisterScreen() {
     setIsSubmitting(true);
 
     try {
+      // Sprawdzanie internetu
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) {
+        throw new Error("network-error");
+      }
+
       // Rejestracja i automatyczne zalogowanie użytkownika przez Firebase
       const userCredential = await createUserWithEmailAndPassword(
         auth,
-        email,
+        cleanEmail,
         password,
       );
       const user = userCredential.user;
 
       // Tworzenie dedykowanego dokumentu użytkownika w bazie z podstawowymi danymi
       await setDoc(doc(db, "users", user.uid), {
-        nazwa_uzytkownika: username.toLowerCase(),
-        email: email.toLowerCase(),
+        nazwa_uzytkownika: cleanUsername.toLowerCase(),
+        email: cleanEmail.toLowerCase(),
         data_dolaczenia: new Date().toLocaleDateString("pl-PL"),
         avatar: null,
       });
@@ -69,8 +79,12 @@ export default function RegisterScreen() {
       setPassword("");
       setConfirmPassword("");
     } catch (error: any) {
-      if (error.code === "auth/email-already-in-use") {
+      if (error.message === "network-error") {
+        Alert.alert("Brak połączenia", "Sprawdź połączenie z internetem i spróbuj ponownie.");
+      } else if (error.code === "auth/email-already-in-use") {
         Alert.alert("Błąd", "Ten adres e-mail jest już zajęty!");
+      } else if (error.code === "auth/invalid-email") {
+        Alert.alert("Błąd", "Podany adres e-mail jest nieprawidłowy!");
       } else if (error.code === "auth/weak-password") {
         Alert.alert("Błąd", "Hasło musi mieć co najmniej 6 znaków!");
       } else {
@@ -88,9 +102,7 @@ export default function RegisterScreen() {
           style={styles.closeButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.closeButtonText}>
-            <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
-          </Text>
+          <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
         </TouchableOpacity>
         <Text style={globalStyles.headerText2}>Zarejestruj się</Text>
       </View>
@@ -212,7 +224,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  closeButtonText: { color: "white", fontSize: 20, fontWeight: "bold" },
   passwordContainer: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,5 +1,6 @@
 // Importy
 import { globalStyles } from "@/constants/theme";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -12,6 +13,7 @@ import {
 } from "react-native";
 
 import { auth } from "@/hooks/firebaseConfig";
+import NetInfo from "@react-native-community/netinfo";
 import { sendPasswordResetEmail } from "firebase/auth";
 
 export default function ResetPasswordScreen() {
@@ -20,7 +22,8 @@ export default function ResetPasswordScreen() {
 
   // Resetowanie hasła
   const handleResetPassword = async () => {
-    if (email.trim() === "") {
+    const cleanEmail = email.trim();
+    if (cleanEmail === "") {
       Alert.alert(
         "Brak e-maila",
         "Podaj adres e-mail, na który założono konto.",
@@ -31,16 +34,28 @@ export default function ResetPasswordScreen() {
     setIsSubmitting(true);
 
     try {
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) {
+        throw new Error("network-error");
+      }
+
       // Wysyłanie wiadomości na podany adres e-mail
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, cleanEmail);
       Alert.alert(
         "Sprawdź skrzynkę",
         "Wysłaliśmy link do resetowania hasła na podany adres e-mail (sprawdź również folder SPAM).",
         [{ text: "OK", onPress: () => router.back() }],
       );
-      setIsSubmitting(false);
     } catch (error: any) {
       console.error(error);
+      if (error.message === "network-error") {
+        Alert.alert("Brak połączenia", "Sprawdź połączenie z internetem i spróbuj ponownie.");
+      } else if (error.code === "auth/user-not-found" || error.code === "auth/invalid-email") {
+         Alert.alert("Błąd", "Nie znaleziono konta z podanym adresem e-mail.");
+      } else {
+         Alert.alert("Błąd", "Wystąpił problem z wysłaniem linku. Spróbuj ponownie później.");
+      }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -52,7 +67,7 @@ export default function ResetPasswordScreen() {
           style={styles.closeButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.closeButtonText}>◀</Text>
+          <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
         </TouchableOpacity>
         <Text style={globalStyles.headerText2}>Resetowanie hasła</Text>
       </View>
@@ -121,6 +136,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  closeButtonText: { color: "white", fontSize: 20, fontWeight: "bold" },
-  RegisterText: { fontSize: 16, color: "white", margin: 20 },
+  RegisterText: { fontSize: 16, color: "white", margin: 20, textAlign: "center", lineHeight: 22 },
 });
