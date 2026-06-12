@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.maciejom.FilmRev",
+      "package": "com.macieom.filmrev",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -42,7 +42,8 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

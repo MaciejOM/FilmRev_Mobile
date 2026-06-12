@@ -1,27 +1,29 @@
-import { AppColors } from "@/constants/theme";
-import { auth } from "@/hooks/firebaseConfig";
-import { Tabs } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
-import React, { useEffect, useState } from "react";
-
 import { HapticTab } from "@/components/haptic-tab";
+import { AppColors } from "@/constants/theme";
+import { useAuth } from "@/hooks/AuthContext";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Tabs } from "expo-router";
+import React from "react";
+import { ActivityIndicator, View } from "react-native";
 
 export default function TabLayout() {
-  const [isLogged, setIsLogged] = useState(false);
+  // Wyciągamy stan bezpośrednio z centralnego monitoringu
+  const { isLogged, isLoading } = useAuth();
 
-  useEffect(() => {
-    // Sprawdzanie stanu logowania
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsLogged(true); // Zalogowany
-      } else {
-        setIsLogged(false); // Wylogowany
-      }
-    });
-
-    return unsubscribe;
-  }, []);
+  // Zabezpieczenie: dopóki aplikacja sprawdza token w SecureStore, pokazujemy loader
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: AppColors.background,
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color={AppColors.primary} />
+      </View>
+    );
+  }
 
   return (
     <Tabs
@@ -60,6 +62,7 @@ export default function TabLayout() {
         name="account"
         options={{
           title: "",
+          // Dynamiczne chowanie zakładki - rekomendowane przez Expo Router
           href: isLogged ? null : "/account",
           tabBarIcon: ({ color }) => (
             <MaterialIcons size={30} name="account-circle" color={color} />
@@ -71,9 +74,10 @@ export default function TabLayout() {
         name="Profile"
         options={{
           title: "",
+          // Dynamiczne chowanie zakładki
           href: isLogged ? "/Profile" : null,
           tabBarIcon: ({ color }) => (
-            <MaterialIcons size={30} name="account-circle" color={color} />
+            <MaterialIcons size={30} name="person" color={color} />
           ),
         }}
       />

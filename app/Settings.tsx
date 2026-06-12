@@ -4,6 +4,7 @@ import { auth, db } from "@/hooks/firebaseConfig";
 import { updateMovieAverageRating } from "@/hooks/firebaseDatabase";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo"; // Dodano obsługę NetCode
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import {
@@ -26,6 +27,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  DeviceEventEmitter,
   StyleSheet,
   Text,
   TextInput,
@@ -34,20 +36,26 @@ import {
 } from "react-native";
 
 export default function SettingsScreen() {
-  // useState'y
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // useState'y odpowiadające za sekwencję bezpiecznego usuwania konta
   const [showDeletePrompt, setShowDeletePrompt] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [confirmDeletePassword, setConfirmDeletePassword] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   // Bezpieczne wylogowanie z usunięciem danych sesyjnych urządzenia
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      Alert.alert(
+        "Uwaga",
+        "Jesteś offline. Twoje dane zostaną wyczyszczone lokalnie, ale pełne wylogowanie z serwera nastąpi po odzyskaniu połączenia.",
+      );
+    }
 
     Alert.alert(
       "Wylogowanie",
@@ -68,7 +76,10 @@ export default function SettingsScreen() {
               router.replace("/account");
             } catch (error) {
               console.error(error);
-              Alert.alert("Błąd", "Nie udało się wylogować.");
+              Alert.alert(
+                "Błąd",
+                "Nie udało się wylogować. Sprawdź połączenie z internetem.",
+              );
             }
           },
         },
@@ -78,10 +89,19 @@ export default function SettingsScreen() {
   };
 
   // Automatyczne wysyłanie e-maila z linkiem do resetu hasła
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const user = auth.currentUser;
 
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      Alert.alert(
+        "Brak połączenia",
+        "Wymagane połączenie z internetem, aby wysłać link resetujący hasło.",
+      );
+      return;
+    }
+
+    const user = auth.currentUser;
     if (user && user.email) {
       Alert.alert(
         "Zmiana hasła",
@@ -115,8 +135,18 @@ export default function SettingsScreen() {
   const handleSaveUsername = async () => {
     const user = auth.currentUser;
     if (!user) return;
+
     if (newName.trim().length < 3) {
       Alert.alert("Błąd", "Nazwa użytkownika musi mieć co najmniej 3 znaki.");
+      return;
+    }
+
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      Alert.alert(
+        "Brak połączenia",
+        "Połącz się z internetem, aby zaktualizować nazwę użytkownika.",
+      );
       return;
     }
 
@@ -148,6 +178,7 @@ export default function SettingsScreen() {
         await AsyncStorage.setItem(cacheKey, JSON.stringify(parsed));
       }
 
+      DeviceEventEmitter.emit("usernameChanged", { newName: newName.trim() });
       Alert.alert("Sukces", "Twoja nazwa użytkownika została zaktualizowana.");
       setIsEditingName(false);
       setNewName("");
@@ -159,7 +190,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // Całkowite wymazywanie konta zapobiegające powstawaniu "Danych-Widmo"
+  // Całkowite wymazywanie konta
   const confirmAndDeleteAccount = async () => {
     const user = auth.currentUser;
     if (!user || !user.email) return;
@@ -171,6 +202,15 @@ export default function SettingsScreen() {
 
     if (deletePassword.trim() === "") {
       Alert.alert("Błąd", "Proszę podać hasło.");
+      return;
+    }
+
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      Alert.alert(
+        "Brak połączenia",
+        "Wymagane połączenie z internetem, aby usunąć konto.",
+      );
       return;
     }
 
@@ -217,10 +257,7 @@ export default function SettingsScreen() {
       await deleteDoc(doc(db, "users", user.uid));
       await deleteUser(user);
 
-      Alert.alert(
-        "Konto usunięte",
-        "Twoje konto, recenzje oraz powiązane średnie ocen zostały pomyślnie i bezpiecznie usunięte.",
-      );
+      Alert.alert("Konto usunięte", "Twoje konto zostało pomyślnie usunięte.");
       router.replace("/account");
     } catch (error: any) {
       console.error("Błąd usuwania konta:", error);
@@ -231,7 +268,7 @@ export default function SettingsScreen() {
       ) {
         Alert.alert(
           "Niepoprawne hasło",
-          "Podane hasło jest błędne. Jeśli logowałeś się przez Google, nie możesz usunąć konta w ten sposób (musisz usunąć dostęp przez panel konta Google).",
+          "Podane hasło jest błędne. Jeśli logowałeś się przez Google, musisz usunąć dostęp przez panel konta Google.",
         );
       } else {
         Alert.alert(

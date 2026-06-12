@@ -1,87 +1,135 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-
 import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  updateDoc,
-} from "firebase/firestore";
-// Mockowanie Firebase Firestore
+    addFirebaseReview,
+    deleteFirebaseReview,
+    updateFirebaseReview,
+} from "../firebaseDatabase";
+
+jest.mock("@react-native-community/netinfo", () => ({
+  fetch: jest.fn().mockResolvedValue({ isConnected: true }),
+}));
+
+jest.mock("../firebaseConfig", () => ({ db: {} }));
+
+const mockAddDoc = jest.fn();
+const mockGetDoc = jest.fn();
+const mockGetDocs = jest.fn();
+const mockDeleteDoc = jest.fn();
+const mockUpdateDoc = jest.fn();
+
 jest.mock("firebase/firestore", () => ({
+  addDoc: (...args: any[]) => mockAddDoc(...args),
+  getDoc: (...args: any[]) => mockGetDoc(...args),
+  getDocs: (...args: any[]) => mockGetDocs(...args),
+  deleteDoc: (...args: any[]) => mockDeleteDoc(...args),
+  updateDoc: (...args: any[]) => mockUpdateDoc(...args),
+  doc: jest.fn((_db, col, id) => ({ _col: col, _id: id })),
   collection: jest.fn(),
-  doc: jest.fn(),
-  addDoc: jest.fn(),
-  updateDoc: jest.fn(),
-  deleteDoc: jest.fn(),
-  serverTimestamp: jest.fn(() => "TIMESTAMP_MOCK"),
-  getFirestore: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+  serverTimestamp: jest.fn(() => ({ _type: "serverTimestamp" })),
+  arrayRemove: jest.fn((v) => ({ _remove: v })),
+  arrayUnion: jest.fn((v) => ({ _union: v })),
 }));
 
-// Mockowanie bazy danych z Twojego pliku config
-jest.mock("@/hooks/firebaseConfig", () => ({
-  db: {},
-}));
+const emptyQuerySnapshot = { forEach: jest.fn(), docs: [] };
 
-describe("Logika bazy danych - Operacje na recenzjach (CRUD)", () => {
+describe("addFirebaseReview", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetDocs.mockResolvedValue(emptyQuerySnapshot);
+    mockUpdateDoc.mockResolvedValue(undefined);
   });
 
-  it("SCENARIUSZ 1: Dodawanie recenzji - powinno wywołać addDoc z odpowiednimi danymi", async () => {
-    const mockReviewData = {
-      userId: "user_1",
-      movieId: 100,
-      autor: "TestUser",
-      ocena: 5,
-      tresc: "Świetny film!",
-      tags: ["Bez spoilerów"],
-    };
+  it("returns { success: true, id } when Firestore write succeeds", async () => {
+    mockAddDoc.mockResolvedValue({ id: "rev_001" });
 
-    // Symulujemy zwrot po utworzeniu dokumentu (otrzymanie nowego ID)
-    (addDoc as jest.Mock).mockResolvedValue({ id: "new_review_id" });
+    const result = await addFirebaseReview(
+      "movie_1",
+      "user1",
+      "Janusz",
+      null,
+      8,
+      "Świetny film!",
+      [],
+    );
 
-    // Symulacja działania Twojej funkcji addFirebaseReview z firebaseDatabase.ts
-    const dbMock = require("@/hooks/firebaseConfig").db;
-    const colRef = collection(dbMock, "reviews");
-    const result = await addDoc(colRef, mockReviewData);
-
-    expect(collection).toHaveBeenCalledWith(dbMock, "reviews");
-    expect(addDoc).toHaveBeenCalledTimes(1);
-    expect(addDoc).toHaveBeenCalledWith(colRef, mockReviewData);
-    expect(result.id).toBe("new_review_id");
+    expect(result).toEqual({ success: true, id: "rev_001" });
+    expect(mockAddDoc).toHaveBeenCalledTimes(1);
   });
 
-  it("SCENARIUSZ 2: Edytowanie recenzji - powinno wywołać updateDoc z nowymi danymi", async () => {
-    const reviewIdToEdit = "review_999";
-    const updatedData = {
-      ocena: 4,
-      tresc: "Zmieniam zdanie, trochę nudny.",
-      tags: [],
-    };
+  it("returns { success: false, error } when Firestore throws", async () => {
+    mockAddDoc.mockRejectedValue(new Error("permission-denied"));
 
-    (updateDoc as jest.Mock).mockResolvedValue(true);
+    const result = await addFirebaseReview(
+      "movie_1",
+      "user1",
+      "Janusz",
+      null,
+      8,
+      "...",
+      [],
+    );
 
-    const dbMock = require("@/hooks/firebaseConfig").db;
-    const docRef = doc(dbMock, "reviews", reviewIdToEdit);
-    await updateDoc(docRef, updatedData);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("permission-denied");
+  });
+});
 
-    expect(doc).toHaveBeenCalledWith(dbMock, "reviews", reviewIdToEdit);
-    expect(updateDoc).toHaveBeenCalledTimes(1);
-    expect(updateDoc).toHaveBeenCalledWith(docRef, updatedData);
+describe("deleteFirebaseReview", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockDeleteDoc.mockResolvedValue(undefined);
+    mockUpdateDoc.mockResolvedValue(undefined);
+    mockGetDocs.mockResolvedValue(emptyQuerySnapshot);
   });
 
-  it("SCENARIUSZ 3: Usuwanie recenzji - powinno wywołać deleteDoc na właściwym ID dokumentu", async () => {
-    const reviewIdToDelete = "review_777";
+  it("deletes the document and returns { success: true }", async () => {
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ movieId: "movie_1", ocena: 8, userId: "user1" }),
+    });
 
-    (deleteDoc as jest.Mock).mockResolvedValue(true);
+    const result = await deleteFirebaseReview("rev_001");
 
-    const dbMock = require("@/hooks/firebaseConfig").db;
-    const docRef = doc(dbMock, "reviews", reviewIdToDelete);
-    await deleteDoc(docRef);
+    expect(mockDeleteDoc).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ success: true });
+  });
 
-    expect(doc).toHaveBeenCalledWith(dbMock, "reviews", reviewIdToDelete);
-    expect(deleteDoc).toHaveBeenCalledTimes(1);
-    expect(deleteDoc).toHaveBeenCalledWith(docRef);
+  it("returns { success: true } even when review doc does not exist", async () => {
+    mockGetDoc.mockResolvedValue({ exists: () => false });
+
+    const result = await deleteFirebaseReview("rev_ghost");
+
+    expect(mockDeleteDoc).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ success: true });
+  });
+});
+
+describe("updateFirebaseReview", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUpdateDoc.mockResolvedValue(undefined);
+    mockGetDocs.mockResolvedValue(emptyQuerySnapshot);
+  });
+
+  it("calls updateDoc with new content and marks isEdited=true", async () => {
+    const result = await updateFirebaseReview(
+      "rev_001",
+      "movie_1",
+      9,
+      "Zaktualizowana recenzja",
+      ["rewelacja"],
+    );
+
+    expect(result).toEqual({ success: true });
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        ocena: 9,
+        tresc: "Zaktualizowana recenzja",
+        tags: ["rewelacja"],
+        isEdited: true,
+      }),
+    );
   });
 });

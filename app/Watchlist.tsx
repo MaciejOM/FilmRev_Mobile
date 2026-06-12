@@ -1,10 +1,11 @@
-//importy
 import Skeleton from "@/components/Skeleton";
 import { AppColors, globalStyles } from "@/constants/theme";
+import { useResponsive } from "@/hooks/useResponsive";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import NetInfo from "@react-native-community/netinfo";
 import { Image } from "expo-image";
-import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -17,57 +18,92 @@ import { auth } from "@/hooks/firebaseConfig";
 import { getUserList } from "@/hooks/firebaseDatabase";
 
 export default function Watchlist() {
-  // useState'y
+  const { userId } = useLocalSearchParams<{ userId: string }>();
+  const { numGridColumns, gridItemWidth } = useResponsive();
+  const itemWidth = gridItemWidth(20, 15);
+
   const [movies, setMovies] = useState<any[]>([]);
   const [tvShows, setTvShows] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"movie" | "tv">("movie");
 
-  // Asynchroniczne pobieranie listy produkcji przypisanych jako "Do obejrzenia"
+  const fetchList = useCallback(async () => {
+    const targetUid = userId || auth.currentUser?.uid;
+    if (!targetUid) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) {
+        throw new Error("Brak połączenia");
+      }
+
+      const data = await getUserList(targetUid, "watchlist");
+      setMovies(data.movies);
+      setTvShows(data.tv);
+    } catch (err: any) {
+      console.error("Błąd pobierania listy do obejrzenia:", err);
+      setError("Brak połączenia z siecią. Nie udało się załadować danych.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
   useFocusEffect(
     useCallback(() => {
-      const fetchList = async () => {
-        const user = auth.currentUser;
-        if (user) {
-          const data = await getUserList(user.uid, "watchlist");
-          setMovies(data.movies);
-          setTvShows(data.tv);
-        }
-        setIsLoading(false);
-      };
       fetchList();
-    }, []),
+    }, [fetchList]),
   );
 
-  // Dynamiczne renderowanie kafelka na siatce połączone z nawigacją do detali
-  const renderGridItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.gridItem}
-      onPress={() =>
-        router.push({
-          pathname: "/FilmDetail",
-          params: {
-            id: item.tmdb_id,
-            title: item.nazwa,
-            release_date: item.rok,
-            overview: item.overview,
-            backdrop: item.backdrop,
-            gatunki: item.gatunki ? item.gatunki.join(", ") : "",
-            type: item.typ,
-          },
-        })
-      }
-    >
-      <Image
-        source={{ uri: "https://image.tmdb.org/t/p/w154/" + item.plakat }}
-        style={styles.posterImage}
-        contentFit="cover"
-      />
-    </TouchableOpacity>
+  const dataToShow = useMemo(
+    () => (activeTab === "movie" ? movies : tvShows),
+    [activeTab, movies, tvShows],
   );
 
-  // Zmiana wyświetlanych danych w zależności od aktualnie aktywnej zakładki
-  const dataToShow = activeTab === "movie" ? movies : tvShows;
+  const renderGridItem = useCallback(
+    ({ item }: { item: any }) => {
+      if (!item) return null;
+
+      return (
+        <TouchableOpacity
+          style={[styles.gridItem, { width: itemWidth }]}
+          onPress={() =>
+            router.push({
+              pathname: "/FilmDetail",
+              params: {
+                id: item.tmdb_id || item.id,
+                title: item.nazwa || item.title,
+                release_date: item.rok || item.release_date,
+                overview: item.overview,
+                backdrop: item.backdrop || item.backdrop_path,
+                gatunki: item.gatunki
+                  ? Array.isArray(item.gatunki)
+                    ? item.gatunki.join(", ")
+                    : item.gatunki
+                  : "",
+                type: item.typ || item.type || "movie",
+              },
+            })
+          }
+        >
+          <Image
+            source={{
+              uri:
+                "https://image.tmdb.org/t/p/w154/" +
+                (item.plakat || item.poster_path),
+            }}
+            style={styles.posterImage}
+            contentFit="cover"
+            transition={200}
+          />
+        </TouchableOpacity>
+      );
+    },
+    [itemWidth],
+  );
 
   return (
     <View style={globalStyles.container}>
@@ -81,12 +117,11 @@ export default function Watchlist() {
         <Text style={globalStyles.headerText2}>Do obejrzenia</Text>
       </View>
 
-      {/* Ekran ładowania w formie szkieletów zastępczych */}
       {isLoading ? (
         <FlatList
           data={[1, 2, 3, 4, 5, 6]}
           keyExtractor={(item) => item.toString()}
-          numColumns={3}
+          numColumns={numGridColumns}
           columnWrapperStyle={{ gap: 15, justifyContent: "flex-start" }}
           contentContainerStyle={styles.scrollContent}
           ListHeaderComponent={
@@ -97,8 +132,17 @@ export default function Watchlist() {
               style={{ marginBottom: 15, marginTop: 10 }}
             />
           }
-          renderItem={() => <Skeleton style={styles.gridItem} />}
+          renderItem={() => (
+            <Skeleton style={[styles.gridItem, { width: itemWidth }]} />
+          )}
         />
+      ) : error ? (
+        <View style={globalStyles.centerContainer}>
+          <Text style={globalStyles.emptyText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchList}>
+            <Text style={styles.retryText}>Spróbuj ponownie</Text>
+          </TouchableOpacity>
+        </View>
       ) : movies.length === 0 && tvShows.length === 0 ? (
         <View style={globalStyles.centerContainer}>
           <Text style={globalStyles.emptyText}>
@@ -144,10 +188,16 @@ export default function Watchlist() {
 
           <FlatList
             data={dataToShow}
-            keyExtractor={(item) => item.id}
-            numColumns={3}
+            keyExtractor={(item, index) =>
+              item?.id?.toString() || index.toString()
+            }
+            numColumns={numGridColumns}
             contentContainerStyle={styles.scrollContent}
             columnWrapperStyle={{ gap: 15, justifyContent: "flex-start" }}
+            initialNumToRender={6}
+            maxToRenderPerBatch={9}
+            windowSize={5}
+            removeClippedSubviews
             ListEmptyComponent={
               <Text style={globalStyles.emptyText}>
                 Brak tytułów na liście w tej kategorii.
@@ -176,8 +226,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: { padding: 20, paddingBottom: 40 },
   gridItem: {
-    flex: 1,
-    maxWidth: "31%",
     aspectRatio: 2 / 3,
     backgroundColor: "#3a3c4f",
     borderRadius: 8,
@@ -206,4 +254,12 @@ const styles = StyleSheet.create({
   },
   tabText: { color: AppColors.textGray, fontWeight: "bold" },
   tabTextActive: { color: AppColors.primary },
+  retryButton: {
+    marginTop: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: AppColors.primary,
+    borderRadius: 8,
+  },
+  retryText: { color: "white", fontWeight: "bold" },
 });

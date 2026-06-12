@@ -1,9 +1,9 @@
-// Importy
 import { AppColors, globalStyles } from "@/constants/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,57 +22,67 @@ import { doc, getDoc } from "firebase/firestore";
 
 const AVAILABLE_TAGS = ["Bez spoilerów", "Pierwsze wrażenia"];
 
-// Ekran dodawania nowej recenzji do konkretnej produkcji
 export default function ReviewEditor() {
   const router = useRouter();
 
-  // Pobranie danych produkcji przekazanych z ekranu szczegółów
-  const { id, type } = useLocalSearchParams();
+  // Pobieramy dodatkowe parametry przesłane z FilmDetail
+  const { id, type, title, release_date, backdrop, gatunki } =
+    useLocalSearchParams();
 
-  // useState'y
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userData, setUserData] = useState<any>(null);
 
-  // Pobranie aktualnych danych użytkownika (np. avatar, nazwa) przy montowaniu komponentu,
-  // aby zapobiec opóźnieniom w momencie kliknięcia przycisku zapisu
   useEffect(() => {
+    let isMounted = true;
     const fetchUser = async () => {
-      if (auth.currentUser) {
-        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
-        if (snap.exists()) setUserData(snap.data());
+      try {
+        const netState = await NetInfo.fetch();
+        if (auth.currentUser && netState.isConnected) {
+          const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+          if (snap.exists() && isMounted) setUserData(snap.data());
+        }
+      } catch {
+        console.warn("Nie udało się pobrać danych użytkownika w tle");
       }
     };
     fetchUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Dodawanie lub usuwanie tagu z tablicy zaznaczonych elementów
-  const toggleTag = (tag: string) => {
+  const toggleTag = useCallback((tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
-  };
+  }, []);
 
-  // Zapisanie recenzji w bazie Firestore
   const handleSubmit = async () => {
     const userAuth = auth.currentUser;
     if (!userAuth) return Alert.alert("Błąd", "Musisz być zalogowany.");
     if (rating === 0) return Alert.alert("Błąd", "Zaznacz ocenę!");
     if (comment.trim() === "") return Alert.alert("Błąd", "Pusta treść!");
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      Alert.alert(
+        "Brak połączenia",
+        "Wymagane połączenie z internetem, aby dodać recenzję.",
+      );
+      return;
+    }
 
-    // Włączenie wskaźnika ładowania blokującego podwójne kliknięcia
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsSubmitting(true);
 
     try {
       const documentId = `${type || "movie"}_${id}`;
 
-      // Oczekiwanie na potwierdzenie zapisu w chmurze zapobiega powstawaniu
-      // tzw. osieroconych danych i błędów braku dokumentu przy szybkiej edycji.
-      await addFirebaseReview(
+      const result = await addFirebaseReview(
         documentId,
         userAuth.uid,
         userData?.nazwa_uzytkownika || "Użytkownik",
@@ -82,25 +92,35 @@ export default function ReviewEditor() {
         selectedTags,
       );
 
-      // Konstruowanie lokalnej paczki danych w celu natychmiastowej aktualizacji UI
-      const optimisticReview = {
-        id: Math.random().toString(),
-        movieId: documentId,
-        userId: userAuth.uid,
-        nazwa_uzytkownika: userData?.nazwa_uzytkownika || "Użytkownik",
-        avatar: userData?.avatar || null,
-        ocena: rating,
-        tresc: comment,
-        tags: selectedTags,
-        likes: [],
-        isEdited: false,
-      };
+      if (result && result.success) {
+        // OPTYMALIZACJA: Pakujemy tu od razu pełne dane filmu!
+        const optimisticReview = {
+          id: result.id,
+          movieId: documentId,
+          userId: userAuth.uid,
+          nazwa_uzytkownika: userData?.nazwa_uzytkownika || "Użytkownik",
+          avatar: userData?.avatar || null,
+          ocena: rating,
+          tresc: comment,
+          tags: selectedTags,
+          likes: [],
+          isEdited: false,
+          movieData: {
+            tmdb_id: id,
+            typ: type || "movie",
+            nazwa: title || "Nieznany tytuł",
+            rok: release_date || "---",
+            backdrop: backdrop || "",
+            gatunki: gatunki ? gatunki.toString().split(", ") : [],
+          },
+        };
 
-      // Wysłanie paczki danych do FilmDetail oraz sygnału odświeżenia licznika do Profilu
-      DeviceEventEmitter.emit("newReviewAdded", optimisticReview);
-      DeviceEventEmitter.emit("refreshProfile");
-
-      router.back();
+        DeviceEventEmitter.emit("newReviewAdded", optimisticReview);
+        // Całkowicie wywalamy "refreshProfile" – opieramy się na fragmencie
+        router.back();
+      } else {
+        throw new Error(result?.error || "Nieznany błąd");
+      }
     } catch (error) {
       console.error(error);
       Alert.alert(
@@ -112,8 +132,7 @@ export default function ReviewEditor() {
     }
   };
 
-  // Zabezpieczenie chroniące użytkownika przed utratą wprowadzonego tekstu
-  const handleBackPress = () => {
+  const handleBackPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     if (rating > 0 || comment.trim() !== "" || selectedTags.length > 0) {
@@ -128,7 +147,7 @@ export default function ReviewEditor() {
     } else {
       router.back();
     }
-  };
+  }, [rating, comment, selectedTags, router]);
 
   return (
     <View style={globalStyles.container}>
@@ -215,7 +234,6 @@ export default function ReviewEditor() {
             maxLength={1028}
           />
 
-          {/* Ostrzeżenie o zbliżaniu się do limitu znaków */}
           {1028 - comment.length <= 100 && (
             <Text
               style={{

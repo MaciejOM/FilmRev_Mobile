@@ -7,17 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:59810252191:android:edcbcafa989430f41aa9aa",
+        "mobilesdk_app_id": "1:59810252191:android:c6a1e9cfdfd1e23f1aa9aa",
         "android_client_info": {
-          "package_name": "com.maciejom.FilmRev"
+          "package_name": "com.macieom.filmrev"
         }
       },
       "oauth_client": [
         {
-          "client_id": "59810252191-b9cev5vff7gt527emq2r80512etdg6fj.apps.googleusercontent.com",
+          "client_id": "59810252191-jklv14eb97o6iu30m810ca1411bf9lhd.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.maciejom.FilmRev",
+            "package_name": "com.macieom.filmrev",
             "certificate_hash": "a3b8cdd39583ed03ae4511bd2297fc65ac34d313"
           }
         },

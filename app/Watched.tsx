@@ -1,10 +1,11 @@
-// Importy
 import Skeleton from "@/components/Skeleton";
 import { AppColors, globalStyles } from "@/constants/theme";
+import { useResponsive } from "@/hooks/useResponsive";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import NetInfo from "@react-native-community/netinfo";
 import { Image } from "expo-image";
-import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -16,58 +17,93 @@ import {
 import { auth } from "@/hooks/firebaseConfig";
 import { getUserList } from "@/hooks/firebaseDatabase";
 
-export default function Favourites() {
-  // useState'y
+export default function Watched() {
+  const { userId } = useLocalSearchParams<{ userId: string }>();
+  const { numGridColumns, gridItemWidth } = useResponsive();
+  const itemWidth = gridItemWidth(20, 15);
+
   const [movies, setMovies] = useState<any[]>([]);
   const [tvShows, setTvShows] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"movie" | "tv">("movie");
 
-  // Asynchroniczne pobieranie list z bazy przy każdym wejściu na ten ekran
+  const fetchList = useCallback(async () => {
+    const targetUid = userId || auth.currentUser?.uid;
+    if (!targetUid) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) {
+        throw new Error("Brak połączenia");
+      }
+
+      const data = await getUserList(targetUid, "watched" as any);
+      setMovies(data.movies);
+      setTvShows(data.tv);
+    } catch (err: any) {
+      console.error("Błąd pobierania listy obejrzanych:", err);
+      setError("Brak połączenia z siecią. Nie udało się załadować danych.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
   useFocusEffect(
     useCallback(() => {
-      const fetchList = async () => {
-        const user = auth.currentUser;
-        if (user) {
-          const data = await getUserList(user.uid, "favourites");
-          setMovies(data.movies);
-          setTvShows(data.tv);
-        }
-        setIsLoading(false);
-      };
       fetchList();
-    }, []),
+    }, [fetchList]),
   );
 
-  // Renderowanie plakatu produkcji wraz z jego przypisanymi danymi w siatce
-  const renderGridItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.gridItem}
-      onPress={() =>
-        router.push({
-          pathname: "/FilmDetail",
-          params: {
-            id: item.tmdb_id,
-            title: item.nazwa,
-            release_date: item.rok,
-            overview: item.overview,
-            backdrop: item.backdrop,
-            gatunki: item.gatunki ? item.gatunki.join(", ") : "",
-            type: item.typ,
-          },
-        })
-      }
-    >
-      <Image
-        source={{ uri: "https://image.tmdb.org/t/p/w154/" + item.plakat }}
-        style={styles.posterImage}
-        contentFit="cover"
-      />
-    </TouchableOpacity>
+  const dataToShow = useMemo(
+    () => (activeTab === "movie" ? movies : tvShows),
+    [activeTab, movies, tvShows],
   );
 
-  // Dynamiczne podmienianie źródła danych FlatListy w oparciu o wybraną zakładkę
-  const dataToShow = activeTab === "movie" ? movies : tvShows;
+  const renderGridItem = useCallback(
+    ({ item }: { item: any }) => {
+      if (!item) return null; // Zabezpieczenie przed pustymi/uszkodzonymi elementami bazy
+
+      return (
+        <TouchableOpacity
+          style={[styles.gridItem, { width: itemWidth }]}
+          onPress={() =>
+            router.push({
+              pathname: "/FilmDetail",
+              params: {
+                id: item.tmdb_id || item.id,
+                title: item.nazwa || item.title,
+                release_date: item.rok || item.release_date,
+                overview: item.overview,
+                backdrop: item.backdrop || item.backdrop_path,
+                gatunki: item.gatunki
+                  ? Array.isArray(item.gatunki)
+                    ? item.gatunki.join(", ")
+                    : item.gatunki
+                  : "",
+                type: item.typ || item.type || "movie",
+              },
+            })
+          }
+        >
+          <Image
+            source={{
+              uri:
+                "https://image.tmdb.org/t/p/w154/" +
+                (item.plakat || item.poster_path),
+            }}
+            style={styles.posterImage}
+            contentFit="cover"
+            transition={200}
+          />
+        </TouchableOpacity>
+      );
+    },
+    [itemWidth],
+  );
 
   return (
     <View style={globalStyles.container}>
@@ -78,30 +114,30 @@ export default function Favourites() {
         >
           <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
         </TouchableOpacity>
-        <Text style={globalStyles.headerText2}>Ulubione</Text>
+        <Text style={globalStyles.headerText2}>Obejrzane</Text>
       </View>
 
       {isLoading ? (
-        // Renderowanie wskaźników ładowania na czas oczekiwania na dane z Firestore
         <FlatList
           data={[1, 2, 3, 4, 5, 6]}
           keyExtractor={(item) => item.toString()}
-          numColumns={3}
+          numColumns={numGridColumns}
           columnWrapperStyle={{ gap: 15, justifyContent: "flex-start" }}
           contentContainerStyle={styles.scrollContent}
-          ListHeaderComponent={
-            <Skeleton
-              width={120}
-              height={20}
-              borderRadius={4}
-              style={{ marginBottom: 15, marginTop: 10 }}
-            />
-          }
-          renderItem={() => <Skeleton style={styles.gridItem} />}
+          renderItem={() => (
+            <Skeleton style={[styles.gridItem, { width: itemWidth }]} />
+          )}
         />
+      ) : error ? (
+        <View style={globalStyles.centerContainer}>
+          <Text style={globalStyles.emptyText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchList}>
+            <Text style={styles.retryText}>Spróbuj ponownie</Text>
+          </TouchableOpacity>
+        </View>
       ) : movies.length === 0 && tvShows.length === 0 ? (
         <View style={globalStyles.centerContainer}>
-          <Text style={globalStyles.emptyText}>Brak ulubionych tytułów.</Text>
+          <Text style={globalStyles.emptyText}>Brak obejrzanych tytułów.</Text>
         </View>
       ) : (
         <View style={{ flex: 1 }}>
@@ -142,13 +178,19 @@ export default function Favourites() {
 
           <FlatList
             data={dataToShow}
-            keyExtractor={(item) => item.id}
-            numColumns={3}
+            keyExtractor={(item, index) =>
+              item?.id?.toString() || index.toString()
+            }
+            numColumns={numGridColumns}
             contentContainerStyle={styles.scrollContent}
             columnWrapperStyle={{ gap: 15, justifyContent: "flex-start" }}
+            initialNumToRender={6}
+            maxToRenderPerBatch={9}
+            windowSize={5}
+            removeClippedSubviews
             ListEmptyComponent={
               <Text style={globalStyles.emptyText}>
-                Brak zapisanych tytułów w tej kategorii.
+                Brak tytułów w tej kategorii.
               </Text>
             }
             renderItem={renderGridItem}
@@ -174,8 +216,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: { padding: 20, paddingBottom: 40 },
   gridItem: {
-    flex: 1,
-    maxWidth: "31%",
     aspectRatio: 2 / 3,
     backgroundColor: "#3a3c4f",
     borderRadius: 8,
@@ -204,4 +244,12 @@ const styles = StyleSheet.create({
   },
   tabText: { color: AppColors.textGray, fontWeight: "bold" },
   tabTextActive: { color: AppColors.primary },
+  retryButton: {
+    marginTop: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: AppColors.primary,
+    borderRadius: 8,
+  },
+  retryText: { color: "white", fontWeight: "bold" },
 });

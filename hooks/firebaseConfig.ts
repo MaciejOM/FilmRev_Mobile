@@ -1,9 +1,10 @@
 // Importy
 import * as SecureStore from "expo-secure-store";
 import { initializeApp } from "firebase/app";
-import { getReactNativePersistence, initializeAuth } from "firebase/auth";
+import { Auth, getAuth, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { Platform } from "react-native";
 
 // Funkcja czyszcząca klucze: zamienia wszystkie znaki poza dozwolonymi na podkreślnik
 const secureKey = (key: string) => {
@@ -23,13 +24,32 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const db = getFirestore(app, "filmrev");
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence({
-    // SecureStore zapisuje stan autoryzacji w pamięci telefonu, aby przy późniejszym odpaleniu aplikacji użytkownik nadal pozostał zalogowany do momentu wylogowania
-    getItem: (key) => SecureStore.getItemAsync(secureKey(key)),
-    setItem: (key, value) => SecureStore.setItemAsync(secureKey(key), value),
-    removeItem: (key) => SecureStore.deleteItemAsync(secureKey(key)),
-  }),
-});
+
+let auth: Auth;
+
+if (Platform.OS === "web") {
+  // Na przeglądarce SecureStore nie istnieje, a getReactNativePersistence nie jest
+  // eksportowane z webowej wersji firebase/auth (Firebase v12). Używamy domyślnej
+  // trwałości przeglądarki (localStorage), aby uniknąć błędu bundlowania.
+  auth = getAuth(app);
+} else {
+  // getReactNativePersistence istnieje WYŁĄCZNIE w buildzie React Native pakietu
+  // firebase/auth (brak go w wersji web/node). Ładujemy je dynamicznie, dzięki czemu
+  // bundling web nie wywala się błędem "(...).getReactNativePersistence is not a function".
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getReactNativePersistence } = require("firebase/auth");
+  auth = initializeAuth(app, {
+    // SecureStore zapisuje stan autoryzacji w pamięci telefonu, aby przy późniejszym
+    // odpaleniu aplikacji użytkownik nadal pozostał zalogowany do momentu wylogowania.
+    persistence: getReactNativePersistence({
+      getItem: (key: string) => SecureStore.getItemAsync(secureKey(key)),
+      setItem: (key: string, value: string) =>
+        SecureStore.setItemAsync(secureKey(key), value),
+      removeItem: (key: string) => SecureStore.deleteItemAsync(secureKey(key)),
+    }),
+  });
+}
+
+export { auth };
 
 export const storage = getStorage(app);

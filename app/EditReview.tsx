@@ -1,9 +1,9 @@
-// Importy
 import { AppColors, globalStyles } from "@/constants/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import NetInfo from "@react-native-community/netinfo";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,16 +18,15 @@ import {
 
 import { updateFirebaseReview } from "@/hooks/firebaseDatabase";
 
+// Tagi recenzji
 const AVAILABLE_TAGS = ["Bez spoilerów", "Pierwsze wrażenia"];
 
 export default function EditReview() {
   const router = useRouter();
 
-  // Pobranie danych recenzji z parametrów ścieżki szczegółów produkcji
   const { reviewId, movieId, initialRating, initialComment, initialTags } =
     useLocalSearchParams();
 
-  // Inicjalizacja useState'ów lokalnych w oparciu o dotychczasowe dane z bazy
   const [rating, setRating] = useState(Number(initialRating) || 0);
   const [comment, setComment] = useState((initialComment as string) || "");
   const [selectedTags, setSelectedTags] = useState<string[]>(
@@ -35,25 +34,35 @@ export default function EditReview() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Przełączanie tagów
-  const toggleTag = (tag: string) => {
+  const toggleTag = useCallback((tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
-  };
+  }, []);
 
-  // Zatwierdzenie modyfikacji i wysłanie asynchronicznego zapytania do bazy Firestore
   const handleSubmit = async () => {
     if (rating === 0) return Alert.alert("Błąd", "Zaznacz ocenę!");
     if (comment.trim() === "") return Alert.alert("Błąd", "Pusta treść!");
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      Alert.alert(
+        "Brak połączenia",
+        "Wymagane połączenie z internetem, aby zaktualizować recenzję.",
+      );
+      return;
+    }
 
-    // Włączenie wskaźnika ładowania i zablokowanie przycisku zapisu
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsSubmitting(true);
 
     try {
-      // Przekazanie zaktualizowanych danych do chmury
+      if (!reviewId || String(reviewId).includes(".")) {
+        throw new Error(
+          "Poczekaj chwilę na pełną synchronizację danych z serwerem przed edycją nowej recenzji.",
+        );
+      }
+
       await updateFirebaseReview(
         reviewId as string,
         movieId as string,
@@ -62,26 +71,27 @@ export default function EditReview() {
         selectedTags,
       );
 
-      // Nadawanie sygnałów do innych ekranów w celu odświeżenia danych
+      // Aktualizacja przyrostowa. Usunięto refreshProfile!
       DeviceEventEmitter.emit("reviewEdited", {
         reviewId: reviewId,
         rating: rating,
         comment: comment,
         selectedTags: selectedTags,
       });
-      DeviceEventEmitter.emit("refreshProfile");
 
       router.back();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      Alert.alert("Błąd", "Nie udało się zaktualizować recenzji.");
+      Alert.alert(
+        "Błąd",
+        error.message || "Nie udało się zaktualizować recenzji.",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Zabezpieczenie przed przypadkową utratą wprowadzonych zmian
-  const handleBackPress = () => {
+  const handleBackPress = useCallback(() => {
     const initialTagsArray = initialTags
       ? JSON.parse(initialTags as string)
       : [];
@@ -103,7 +113,15 @@ export default function EditReview() {
     } else {
       router.back();
     }
-  };
+  }, [
+    rating,
+    comment,
+    selectedTags,
+    initialRating,
+    initialComment,
+    initialTags,
+    router,
+  ]);
 
   return (
     <View style={globalStyles.container}>

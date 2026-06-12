@@ -1,9 +1,9 @@
 import { AppColors, globalStyles } from "@/constants/theme";
-import { useFilms } from "@/hooks/useFilms";
-import { useTV } from "@/hooks/useTV";
+import { useGlobalMedia } from "@/hooks/MediaContext"; // Zamieniono na główny hook, by mieć dostęp do Retry
+import { useResponsive } from "@/hooks/useResponsive";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -17,9 +17,11 @@ import {
 export default function FilmList() {
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+  const { numGridColumns, gridItemWidth } = useResponsive();
+  const itemWidth = gridItemWidth(20, 15);
 
-  const { film, isLoading: isFilmLoading, error: filmError } = useFilms();
-  const { Tv, isLoading: isTvLoading, error: tvError } = useTV();
+  // Pobieranie wszystkiego z jednego miejsca (wraz z funkcją naprawczą z pkt 12)
+  const { film, Tv, isLoading, error, refreshMedia } = useGlobalMedia();
 
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState("all");
@@ -27,53 +29,8 @@ export default function FilmList() {
   const [filterYear, setFilterYear] = useState("");
   const [filterRating, setFilterRating] = useState(0);
 
-  const isLoading = isFilmLoading || isTvLoading;
-  const hasError = filmError && film.length === 0 && tvError && Tv.length === 0;
+  const hasError = error && film.length === 0 && Tv.length === 0;
   const isSearchEmpty = searchQuery.trim() === "";
-
-  // Połączenie filmów i seriali w jedną, uniwersalną listę do bezproblemowego wyszukiwania
-  const combinedData = [
-    ...film.map((item) => ({
-      ...item,
-      searchTitle: String(item.title || item.nazwa || item.name || ""),
-      searchDate: String(
-        item.release_date || item.rok || item.first_air_date || "",
-      ),
-      type: "movie",
-    })),
-    ...Tv.map((item) => ({
-      ...item,
-      searchTitle: String(item.name || item.nazwa || item.title || ""),
-      searchDate: String(
-        item.first_air_date || item.rok || item.release_date || "",
-      ),
-      type: "tv",
-    })),
-  ];
-
-  // Dynamiczne wyciąganie unikalnych lat produkcji z pobranej bazy (zapobiega to wybieraniu lat bez przypisanych filmów)
-  const availableYears = Array.from(
-    new Set(
-      combinedData.map((item) =>
-        item.searchDate.length >= 4 ? item.searchDate.substring(0, 4) : "",
-      ),
-    ),
-  )
-    .filter((year) => year !== "")
-    .sort()
-    .reverse();
-
-  // Dynamiczne wyciąganie unikalnych gatunków (odporne na różne formaty zapisu z TMDB/Firebase)
-  const availableGenres = Array.from(
-    new Set(
-      combinedData.flatMap((item) => {
-        if (Array.isArray(item.gatunki)) return item.gatunki;
-        if (typeof item.gatunki === "string" && item.gatunki.trim() !== "")
-          return item.gatunki.split(",").map((g: string) => g.trim());
-        return [];
-      }),
-    ),
-  ).sort();
 
   const hasActiveFilters =
     filterType !== "all" ||
@@ -81,37 +38,100 @@ export default function FilmList() {
     filterYear !== "" ||
     filterRating > 0;
 
-  // Główny silnik filtrujący (wyszukiwarka tekstowa + filtry wielokrotnego wyboru)
-  const mediaFilter = combinedData.filter((item) => {
-    if (
-      !isSearchEmpty &&
-      !item.searchTitle.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  // OPTYMALIZACJA: Połączenie list wykonuje się tylko po pobraniu nowych danych, a nie przy każdym wpisaniu literki
+  const combinedData = useMemo(() => {
+    return [
+      ...film.map((item) => ({
+        ...item,
+        searchTitle: String(item.title || item.nazwa || item.name || ""),
+        searchDate: String(
+          item.release_date || item.rok || item.first_air_date || "",
+        ),
+        type: "movie",
+      })),
+      ...Tv.map((item) => ({
+        ...item,
+        searchTitle: String(item.name || item.nazwa || item.title || ""),
+        searchDate: String(
+          item.first_air_date || item.rok || item.release_date || "",
+        ),
+        type: "tv",
+      })),
+    ];
+  }, [film, Tv]);
+
+  // OPTYMALIZACJA: Wyciąganie lat produkcji z pamięci podręcznej
+  const availableYears = useMemo(() => {
+    return Array.from(
+      new Set(
+        combinedData.map((item) =>
+          item.searchDate.length >= 4 ? item.searchDate.substring(0, 4) : "",
+        ),
+      ),
     )
-      return false;
+      .filter((year) => year !== "")
+      .sort()
+      .reverse();
+  }, [combinedData]);
 
-    if (filterType !== "all" && item.type !== filterType) return false;
+  // OPTYMALIZACJA: Dynamiczne wyciąganie unikalnych gatunków
+  const availableGenres = useMemo(() => {
+    return Array.from(
+      new Set(
+        combinedData.flatMap((item) => {
+          if (Array.isArray(item.gatunki)) return item.gatunki;
+          if (typeof item.gatunki === "string" && item.gatunki.trim() !== "")
+            return item.gatunki.split(",").map((g: string) => g.trim());
+          return [];
+        }),
+      ),
+    ).sort();
+  }, [combinedData]);
 
-    if (filterYear !== "" && !item.searchDate.startsWith(filterYear))
-      return false;
+  // Główny silnik filtrujący wewnątrz useMemo (zabezpieczenie przed lagami podczas pisania na klawiaturze)
+  const dataToShow = useMemo(() => {
+    if (isSearchEmpty && !hasActiveFilters) return [];
 
-    const itemGenres = Array.isArray(item.gatunki)
-      ? item.gatunki
-      : typeof item.gatunki === "string"
-        ? item.gatunki.split(",").map((g) => g.trim())
-        : [];
-    if (filterGenre !== "" && !itemGenres.includes(filterGenre)) return false;
-
-    const rating = Number(item.vote_average || item.srednia_ocen || 0);
-    if (filterRating > 0) {
-      if (rating < filterRating || rating >= filterRating + 1) {
+    return combinedData.filter((item) => {
+      if (
+        !isSearchEmpty &&
+        !item.searchTitle
+          .toLowerCase()
+          .includes(searchQuery.trim().toLowerCase())
+      )
         return false;
+
+      if (filterType !== "all" && item.type !== filterType) return false;
+
+      if (filterYear !== "" && !item.searchDate.startsWith(filterYear))
+        return false;
+
+      const itemGenres = Array.isArray(item.gatunki)
+        ? item.gatunki
+        : typeof item.gatunki === "string"
+          ? item.gatunki.split(",").map((g: string) => g.trim())
+          : [];
+      if (filterGenre !== "" && !itemGenres.includes(filterGenre)) return false;
+
+      const rating = Number(item.vote_average || item.srednia_ocen || 0);
+      if (filterRating > 0) {
+        if (rating < filterRating || rating >= filterRating + 1) {
+          return false;
+        }
       }
-    }
 
-    return true;
-  });
-
-  const dataToShow = isSearchEmpty && !hasActiveFilters ? [] : mediaFilter;
+      return true;
+    });
+  }, [
+    combinedData,
+    searchQuery,
+    filterType,
+    filterYear,
+    filterGenre,
+    filterRating,
+    isSearchEmpty,
+    hasActiveFilters,
+  ]);
 
   // Resetowanie wszystkich nałożonych filtrów jednym kliknięciem
   const clearFilters = () => {
@@ -290,7 +310,14 @@ export default function FilmList() {
           style={{ marginTop: 20 }}
         />
       ) : hasError ? (
-        <Text style={globalStyles.emptyText}>Błąd pobierania danych.</Text>
+        <View style={{ alignItems: "center", marginTop: 20 }}>
+          <Text style={globalStyles.emptyText}>
+            Błąd pobierania danych z serwera.
+          </Text>
+          <TouchableOpacity style={styles.retryButton} onPress={refreshMedia}>
+            <Text style={styles.retryText}>Spróbuj ponownie</Text>
+          </TouchableOpacity>
+        </View>
       ) : isSearchEmpty && !hasActiveFilters ? (
         <Text style={globalStyles.emptyText}>
           Wpisz tytuł lub wybierz filtry, aby wyszukać.
@@ -300,13 +327,17 @@ export default function FilmList() {
           data={dataToShow}
           keyExtractor={(item) => `${item.type}-${item.id || item.tmdb_id}`}
           horizontal={false}
-          numColumns={3}
+          numColumns={numGridColumns}
           columnWrapperStyle={{
             gap: 15,
             justifyContent: "flex-start",
             paddingHorizontal: 20,
           }}
           contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
+          initialNumToRender={6}
+          maxToRenderPerBatch={9}
+          windowSize={5}
+          removeClippedSubviews
           ListEmptyComponent={
             <Text style={globalStyles.emptyText}>
               Brak wyników spełniających kryteria.
@@ -319,7 +350,7 @@ export default function FilmList() {
 
             return (
               <TouchableOpacity
-                style={styles.gridBanner}
+                style={[styles.gridBanner, { width: itemWidth }]}
                 onPress={() =>
                   router.push({
                     pathname: "/FilmDetail",
@@ -344,6 +375,8 @@ export default function FilmList() {
                       (item.poster_path || item.plakat),
                   }}
                   style={[globalStyles.filmImage, { height: 160 }]}
+                  contentFit="cover"
+                  transition={200}
                 />
                 <Text style={styles.gridTitle} numberOfLines={1}>
                   {item.searchTitle}
@@ -422,7 +455,18 @@ const styles = StyleSheet.create({
     color: AppColors.textGray,
     textDecorationLine: "underline",
   },
-  gridBanner: { width: "31%", marginBottom: 20 },
+  gridBanner: { marginBottom: 20 },
   gridTitle: { color: "white", fontSize: 12, fontWeight: "bold", marginTop: 5 },
   gridRating: { color: "#FFD700", fontSize: 11, marginTop: 2 },
+  retryButton: {
+    marginTop: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: AppColors.primary,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: "white",
+    fontWeight: "bold",
+  },
 });

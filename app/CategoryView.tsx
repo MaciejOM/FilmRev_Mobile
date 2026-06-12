@@ -1,7 +1,7 @@
 // importy
 import { AppColors, globalStyles } from "@/constants/theme";
-import { useFilms } from "@/hooks/useFilms";
-import { useTV } from "@/hooks/useTV";
+import { useGlobalMedia } from "@/hooks/MediaContext"; // Zmieniono na główny hook
+import { useResponsive } from "@/hooks/useResponsive";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -18,13 +18,15 @@ import {
 export default function CategoryView() {
   const router = useRouter();
   const { category, title } = useLocalSearchParams();
+  const { numGridColumns, gridItemWidth } = useResponsive();
+  const itemWidth = gridItemWidth(20, 15);
 
-  const { film, isLoading: isFilmLoading } = useFilms();
-  const { Tv, isLoading: isTvLoading } = useTV();
+  // Pobieramy globalny, zcache'owany stan. Dzięki temu ponowne wejście w kategorię jest błyskawiczne.
+  const { film, Tv, isLoading, error, refreshMedia } = useGlobalMedia();
 
   // useMemo pozwala na filtrowanie i sortowanie tylko przy zmianie danych, co zwiększa wydajność.
   const dataToShow = useMemo(() => {
-    if (isFilmLoading || isTvLoading) return [];
+    if (isLoading || (!film.length && !Tv.length)) return [];
 
     // Mapowanie danych z filmów i seriali do ujednoliconego formatu wyszukiwania
     const moviesData = film.map((f) => ({
@@ -58,7 +60,7 @@ export default function CategoryView() {
       );
     }
 
-    // Łączenie i filtrowanie zbiorów dla kategorii "Najlepiej oceniane" (Wymagana jest min. 1 recenzja przy produkcji, żeby się pojawiłą w tej kategorii)
+    // Łączenie i filtrowanie zbiorów dla kategorii "Najlepiej oceniane" (Wymagana jest min. 1 recenzja)
     if (category === "top_rated") {
       return [...moviesData, ...tvData]
         .filter((item) => (item.vote_average || 0) > 0)
@@ -66,7 +68,7 @@ export default function CategoryView() {
     }
 
     return [];
-  }, [film, Tv, isFilmLoading, isTvLoading, category]);
+  }, [film, Tv, isLoading, category]);
 
   return (
     <View style={globalStyles.container}>
@@ -75,44 +77,60 @@ export default function CategoryView() {
           style={styles.closeButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.closeButtonText}>
-            <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
-          </Text>
+          <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
         </TouchableOpacity>
         <Text style={globalStyles.headerText2}>{title}</Text>
       </View>
 
-      {isFilmLoading || isTvLoading ? (
+      {isLoading ? (
         <ActivityIndicator
           size="large"
           color={AppColors.primary}
           style={{ marginTop: 20 }}
         />
+      ) : error && dataToShow.length === 0 ? (
+        <View style={globalStyles.centerContainer}>
+          <Text style={globalStyles.emptyText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={refreshMedia}>
+            <Text style={styles.retryText}>Spróbuj ponownie</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={dataToShow}
-          keyExtractor={(item) => `${item.type}-${item.id}`}
+          keyExtractor={(item) => `${item.type}-${item.id || item.tmdb_id}`}
           horizontal={false}
-          numColumns={3}
+          numColumns={numGridColumns}
           columnWrapperStyle={{
             gap: 15,
             justifyContent: "flex-start",
             paddingHorizontal: 20,
           }}
           contentContainerStyle={{ paddingBottom: 20, paddingTop: 20 }}
+          initialNumToRender={6}
+          maxToRenderPerBatch={9}
+          windowSize={5}
+          removeClippedSubviews
+          ListEmptyComponent={
+            <Text style={globalStyles.emptyText}>
+              Brak tytułów w tej kategorii.
+            </Text>
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.gridBanner}
+              style={[styles.gridBanner, { width: itemWidth }]}
               onPress={() =>
                 router.push({
                   pathname: "/FilmDetail",
                   params: {
-                    id: item.id,
+                    id: item.id || item.tmdb_id,
                     title: item.searchTitle,
                     release_date: item.searchDate,
                     overview: item.overview,
-                    backdrop: item.backdrop_path,
-                    gatunki: item.gatunki,
+                    backdrop: item.backdrop_path || item.backdrop,
+                    gatunki: Array.isArray(item.gatunki)
+                      ? item.gatunki.join(", ")
+                      : item.gatunki,
                     type: item.type,
                   },
                 })
@@ -120,9 +138,13 @@ export default function CategoryView() {
             >
               <Image
                 source={{
-                  uri: "https://image.tmdb.org/t/p/w154/" + item.poster_path,
+                  uri:
+                    "https://image.tmdb.org/t/p/w154/" +
+                    (item.poster_path || item.plakat),
                 }}
                 style={[globalStyles.filmImage, { height: 160 }]}
+                contentFit="cover"
+                transition={200}
               />
               <Text style={styles.gridTitle} numberOfLines={1}>
                 {item.searchTitle}
@@ -151,8 +173,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  closeButtonText: { color: "white", fontSize: 20, fontWeight: "bold" },
-  gridBanner: { width: "31%", marginBottom: 20 },
+  gridBanner: { marginBottom: 20 },
   gridTitle: { color: "white", fontSize: 12, fontWeight: "bold", marginTop: 5 },
   gridRating: { color: "#FFD700", fontSize: 11, marginTop: 2 },
+  retryButton: {
+    marginTop: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: AppColors.primary,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: "white",
+    fontWeight: "bold",
+  },
 });
