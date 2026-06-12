@@ -14,10 +14,17 @@
       },
       "oauth_client": [
         {
+<<<<<<< HEAD
           "client_id": "59810252191-jklv14eb97o6iu30m810ca1411bf9lhd.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.macieom.filmrev",
+=======
+          "client_id": "59810252191-b9cev5vff7gt527emq2r80512etdg6fj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.maciejom.FilmRev",
+>>>>>>> d728a928f0be73966fc6a97cc16771e206638161
             "certificate_hash": "a3b8cdd39583ed03ae4511bd2297fc65ac34d313"
           }
         },
