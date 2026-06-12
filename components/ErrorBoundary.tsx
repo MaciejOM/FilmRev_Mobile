@@ -12,8 +12,7 @@ interface State {
 }
 
 /**
- * Catches unhandled render errors anywhere in the subtree and shows a
- * user-friendly recovery screen instead of a blank crash.
+ * Wyłapuje błędy renderowania i wyświetla użytkownikowi komunikat z możliwością ponownej próby załadowania.
  */
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -39,7 +38,8 @@ export default class ErrorBoundary extends Component<Props, State> {
         <View style={styles.container}>
           <Text style={styles.title}>Coś poszło nie tak</Text>
           <Text style={styles.message}>
-            {this.state.error?.message || "Wystąpił nieoczekiwany błąd renderowania."}
+            {this.state.error?.message ||
+              "Wystąpił nieoczekiwany błąd renderowania."}
           </Text>
           <TouchableOpacity style={styles.button} onPress={this.handleReset}>
             <Text style={styles.buttonText}>Spróbuj ponownie</Text>

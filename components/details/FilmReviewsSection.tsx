@@ -26,7 +26,9 @@ const FilmReviewsSection = ({
             </Text>
           </TouchableOpacity>
         )}
-        <Text style={[styles.reviewSectionTitle, !currentUser && { left: 0 }]}>Recenzje</Text>
+        <Text style={[styles.reviewSectionTitle, !currentUser && { left: 0 }]}>
+          Recenzje
+        </Text>
         {totalReviews > 0 && (
           <View style={styles.averageRatingContainer}>
             <Text style={styles.averageRatingText}>{averageRating}</Text>
@@ -43,12 +45,37 @@ export default memo(FilmReviewsSection);
 
 const styles = StyleSheet.create({
   reviewsSection: { paddingHorizontal: 20, marginTop: 10 },
-  reviewsHeaderContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 },
-  addButton: { position: "absolute", backgroundColor: "rgba(0,0,0,0.5)", width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center", zIndex: 10 },
+  reviewsHeaderContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    marginBottom: 10,
+  },
+  addButton: {
+    position: "absolute",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
   addButtonText: { color: "white", fontSize: 30, fontWeight: "bold" },
-  reviewSectionTitle: { left: 50, fontSize: 22, fontWeight: "bold", color: "white", marginBottom: 10 },
+  reviewSectionTitle: {
+    left: 50,
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "white",
+    marginBottom: 10,
+  },
   averageRatingContainer: { flexDirection: "row", alignItems: "center" },
   averageRatingText: { fontSize: 24, fontWeight: "bold", color: "white" },
-  averageRatingStar: { fontSize: 22, color: "#FFD700", marginLeft: 4, marginRight: 8 },
+  averageRatingStar: {
+    fontSize: 22,
+    color: "#FFD700",
+    marginLeft: 4,
+    marginRight: 8,
+  },
   totalReviewsText: { fontSize: 14, color: AppColors.textGray },
 });

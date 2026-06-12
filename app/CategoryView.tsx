@@ -112,7 +112,9 @@ export default function CategoryView() {
           windowSize={5}
           removeClippedSubviews
           ListEmptyComponent={
-            <Text style={globalStyles.emptyText}>Brak tytułów w tej kategorii.</Text>
+            <Text style={globalStyles.emptyText}>
+              Brak tytułów w tej kategorii.
+            </Text>
           }
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -126,7 +128,9 @@ export default function CategoryView() {
                     release_date: item.searchDate,
                     overview: item.overview,
                     backdrop: item.backdrop_path || item.backdrop,
-                    gatunki: Array.isArray(item.gatunki) ? item.gatunki.join(", ") : item.gatunki,
+                    gatunki: Array.isArray(item.gatunki)
+                      ? item.gatunki.join(", ")
+                      : item.gatunki,
                     type: item.type,
                   },
                 })
@@ -134,7 +138,9 @@ export default function CategoryView() {
             >
               <Image
                 source={{
-                  uri: "https://image.tmdb.org/t/p/w154/" + (item.poster_path || item.plakat),
+                  uri:
+                    "https://image.tmdb.org/t/p/w154/" +
+                    (item.poster_path || item.plakat),
                 }}
                 style={[globalStyles.filmImage, { height: 160 }]}
                 contentFit="cover"

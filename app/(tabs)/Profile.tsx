@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState, } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +17,11 @@ import {
 } from "react-native";
 
 import { auth, db, storage } from "@/hooks/firebaseConfig";
-import { deleteFirebaseReview, getUserList, getUserReviews } from "@/hooks/firebaseDatabase";
+import {
+  deleteFirebaseReview,
+  getUserList,
+  getUserReviews,
+} from "@/hooks/firebaseDatabase";
 import { signOut } from "firebase/auth";
 import {
   collection,
@@ -57,9 +61,19 @@ export default function ProfileScreen() {
       if (!netState.isConnected) return;
 
       const userDocRef = doc(db, "users", userAuth.uid);
-      const listsQuery = query(collection(db, "custom_lists"), where("userId", "==", userAuth.uid));
+      const listsQuery = query(
+        collection(db, "custom_lists"),
+        where("userId", "==", userAuth.uid),
+      );
 
-      const [userDocSnap, favData, watchData, watchedRawData, revData, listsSnap] = await Promise.all([
+      const [
+        userDocSnap,
+        favData,
+        watchData,
+        watchedRawData,
+        revData,
+        listsSnap,
+      ] = await Promise.all([
         getDoc(userDocRef),
         getUserList(userAuth.uid, "favourites"),
         getUserList(userAuth.uid, "watchlist"),
@@ -70,11 +84,17 @@ export default function ProfileScreen() {
 
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
-        const userCustomLists = listsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const userCustomLists = listsSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
 
         const fullFavData = [...favData.movies, ...favData.tv];
         const fullWatchData = [...watchData.movies, ...watchData.tv];
-        const fullWatchedData = [...watchedRawData.movies, ...watchedRawData.tv];
+        const fullWatchedData = [
+          ...watchedRawData.movies,
+          ...watchedRawData.tv,
+        ];
 
         setUser(userData);
         setFavouritesData(fullFavData);
@@ -132,7 +152,10 @@ export default function ProfileScreen() {
             console.error("Błąd parsowania cache", e);
           }
         } else if (!netState.isConnected) {
-          Alert.alert("Brak sieci", "Wymagane połączenie, aby załadować profil po raz pierwszy.");
+          Alert.alert(
+            "Brak połączenia",
+            "Wymagane połączenie, aby załadować profil po raz pierwszy.",
+          );
         }
 
         if (netState.isConnected) {
@@ -151,13 +174,15 @@ export default function ProfileScreen() {
 
   const hasFetchedOnce = useRef(false);
 
-  useFocusEffect(useCallback(() => {
-  if (!hasFetchedOnce.current) {
-    hasFetchedOnce.current = true;
-    loadUserData(); // full load only on first mount
-  }
-  // Subsequent focuses: delta events handle everything, no fetch needed
-}, [loadUserData]));
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasFetchedOnce.current) {
+        hasFetchedOnce.current = true;
+        loadUserData(); // full load only on first mount
+      }
+      // Subsequent focuses: delta events handle everything, no fetch needed
+    }, [loadUserData]),
+  );
 
   const updateCache = useCallback((updater: (parsed: any) => void) => {
     const uid = auth.currentUser?.uid;
@@ -176,112 +201,193 @@ export default function ProfileScreen() {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     try {
-      const listsQuery = query(collection(db, "custom_lists"), where("userId", "==", uid));
+      const listsQuery = query(
+        collection(db, "custom_lists"),
+        where("userId", "==", uid),
+      );
       const listsSnap = await getDocs(listsQuery);
-      const userCustomLists = listsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const userCustomLists = listsSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
       setCustomListsData(userCustomLists);
-      updateCache((p) => { p.customListsData = userCustomLists; });
+      updateCache((p) => {
+        p.customListsData = userCustomLists;
+      });
     } catch (err) {
       console.error("Błąd odświeżania list:", err);
     }
   }, [updateCache]);
 
   useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener("refreshProfile", () => {
-      if (auth.currentUser) fetchFreshData(auth.currentUser);
-    });
+    const subscription = DeviceEventEmitter.addListener(
+      "refreshProfile",
+      () => {
+        if (auth.currentUser) fetchFreshData(auth.currentUser);
+      },
+    );
 
-    const favSub = DeviceEventEmitter.addListener("favouriteToggled", (data) => {
-      setFavouritesData((prev) => {
-        const updated = data.isAdded
-          ? prev.find((item) => item.id === data.mediaId) ? prev : [data.mediaData, ...prev]
-          : prev.filter((item) => item.id !== data.mediaId);
-        updateCache((p) => { p.favouritesData = updated; });
-        return updated;
-      });
-    });
+    const favSub = DeviceEventEmitter.addListener(
+      "favouriteToggled",
+      (data) => {
+        setFavouritesData((prev) => {
+          const updated = data.isAdded
+            ? prev.find((item) => item.id === data.mediaId)
+              ? prev
+              : [data.mediaData, ...prev]
+            : prev.filter((item) => item.id !== data.mediaId);
+          updateCache((p) => {
+            p.favouritesData = updated;
+          });
+          return updated;
+        });
+      },
+    );
 
-    const watchlistSub = DeviceEventEmitter.addListener("watchlistToggled", (data) => {
-      setWatchlistData((prev) => {
-        const updated = data.isAdded
-          ? prev.find((item) => item.id === data.mediaId) ? prev : [data.mediaData, ...prev]
-          : prev.filter((item) => item.id !== data.mediaId);
-        return updated;
-      });
-    });
+    const watchlistSub = DeviceEventEmitter.addListener(
+      "watchlistToggled",
+      (data) => {
+        setWatchlistData((prev) => {
+          const updated = data.isAdded
+            ? prev.find((item) => item.id === data.mediaId)
+              ? prev
+              : [data.mediaData, ...prev]
+            : prev.filter((item) => item.id !== data.mediaId);
+          return updated;
+        });
+      },
+    );
 
-    const watchedSub = DeviceEventEmitter.addListener("watchedToggled", (data) => {
-      setWatchedData((prev) => {
-        const updated = data.isAdded
-          ? prev.find((item) => item.id === data.mediaId) ? prev : [data.mediaData, ...prev]
-          : prev.filter((item) => item.id !== data.mediaId);
-        return updated;
-      });
-    });
+    const watchedSub = DeviceEventEmitter.addListener(
+      "watchedToggled",
+      (data) => {
+        setWatchedData((prev) => {
+          const updated = data.isAdded
+            ? prev.find((item) => item.id === data.mediaId)
+              ? prev
+              : [data.mediaData, ...prev]
+            : prev.filter((item) => item.id !== data.mediaId);
+          return updated;
+        });
+      },
+    );
 
-    const newRevSub = DeviceEventEmitter.addListener("newReviewAdded", (newReview) => {
-      setReviewsData((prev) => [newReview, ...prev]);
-      setReviewCount((prev) => prev + 1);
-      updateCache((p) => {
-        p.reviewsData = [newReview, ...(p.reviewsData || [])];
-        p.reviewCount = (p.reviewCount || 0) + 1;
-      });
-    });
+    const newRevSub = DeviceEventEmitter.addListener(
+      "newReviewAdded",
+      (newReview) => {
+        setReviewsData((prev) => [newReview, ...prev]);
+        setReviewCount((prev) => prev + 1);
+        updateCache((p) => {
+          p.reviewsData = [newReview, ...(p.reviewsData || [])];
+          p.reviewCount = (p.reviewCount || 0) + 1;
+        });
+      },
+    );
 
-    const editRevSub = DeviceEventEmitter.addListener("reviewEdited", (data) => {
-      setReviewsData((prev) =>
-        prev.map((r) => r.id === data.reviewId ? { ...r, ocena: data.rating, tresc: data.comment, tags: data.selectedTags, isEdited: true } : r)
-      );
-      updateCache((p) => {
-        p.reviewsData = (p.reviewsData || []).map((r: any) =>
-          r.id === data.reviewId ? { ...r, ocena: data.rating, tresc: data.comment, tags: data.selectedTags, isEdited: true } : r
+    const editRevSub = DeviceEventEmitter.addListener(
+      "reviewEdited",
+      (data) => {
+        setReviewsData((prev) =>
+          prev.map((r) =>
+            r.id === data.reviewId
+              ? {
+                  ...r,
+                  ocena: data.rating,
+                  tresc: data.comment,
+                  tags: data.selectedTags,
+                  isEdited: true,
+                }
+              : r,
+          ),
         );
-      });
-    });
+        updateCache((p) => {
+          p.reviewsData = (p.reviewsData || []).map((r: any) =>
+            r.id === data.reviewId
+              ? {
+                  ...r,
+                  ocena: data.rating,
+                  tresc: data.comment,
+                  tags: data.selectedTags,
+                  isEdited: true,
+                }
+              : r,
+          );
+        });
+      },
+    );
 
-    const delRevSub = DeviceEventEmitter.addListener("reviewDeleted", (data) => {
-      setReviewsData((prev) => prev.filter((r) => r.id !== data.reviewId));
-      setReviewCount((prev) => Math.max(0, prev - 1));
-      updateCache((p) => {
-        p.reviewsData = (p.reviewsData || []).filter((r: any) => r.id !== data.reviewId);
-        p.reviewCount = Math.max(0, (p.reviewCount || 1) - 1);
-      });
-    });
+    const delRevSub = DeviceEventEmitter.addListener(
+      "reviewDeleted",
+      (data) => {
+        setReviewsData((prev) => prev.filter((r) => r.id !== data.reviewId));
+        setReviewCount((prev) => Math.max(0, prev - 1));
+        updateCache((p) => {
+          p.reviewsData = (p.reviewsData || []).filter(
+            (r: any) => r.id !== data.reviewId,
+          );
+          p.reviewCount = Math.max(0, (p.reviewCount || 1) - 1);
+        });
+      },
+    );
 
     // Fix: likes disappear when switching tabs — Profile must track like changes in reviewsData
-    const likeRevSub = DeviceEventEmitter.addListener("reviewLikeToggled", (data) => {
-      setReviewsData((prev) =>
-        prev.map((r) => r.id === data.reviewId ? { ...r, likes: data.newLikes } : r)
-      );
-      updateCache((p) => {
-        p.reviewsData = (p.reviewsData || []).map((r: any) =>
-          r.id === data.reviewId ? { ...r, likes: data.newLikes } : r
+    const likeRevSub = DeviceEventEmitter.addListener(
+      "reviewLikeToggled",
+      (data) => {
+        setReviewsData((prev) =>
+          prev.map((r) =>
+            r.id === data.reviewId ? { ...r, likes: data.newLikes } : r,
+          ),
         );
-      });
-    });
+        updateCache((p) => {
+          p.reviewsData = (p.reviewsData || []).map((r: any) =>
+            r.id === data.reviewId ? { ...r, likes: data.newLikes } : r,
+          );
+        });
+      },
+    );
 
-    const usernameSub = DeviceEventEmitter.addListener("usernameChanged", (data) => {
-      setUser((prev: any) => prev ? { ...prev, nazwa_uzytkownika: data.newName } : prev);
-      updateCache((p) => { if (p.user) p.user.nazwa_uzytkownika = data.newName; });
-    });
-
-    const listDeletedSub = DeviceEventEmitter.addListener("customListDeleted", (data) => {
-      setCustomListsData((prev) => prev.filter((list) => list.id !== data.listId));
-      updateCache((p) => {
-        p.customListsData = (p.customListsData || []).filter((list: any) => list.id !== data.listId);
-      });
-    });
-
-    const listRenamedSub = DeviceEventEmitter.addListener("customListRenamed", (data) => {
-      setCustomListsData((prev) =>
-        prev.map((list) => list.id === data.listId ? { ...list, name: data.newName } : list)
-      );
-      updateCache((p) => {
-        p.customListsData = (p.customListsData || []).map((list: any) =>
-          list.id === data.listId ? { ...list, name: data.newName } : list
+    const usernameSub = DeviceEventEmitter.addListener(
+      "usernameChanged",
+      (data) => {
+        setUser((prev: any) =>
+          prev ? { ...prev, nazwa_uzytkownika: data.newName } : prev,
         );
-      });
-    });
+        updateCache((p) => {
+          if (p.user) p.user.nazwa_uzytkownika = data.newName;
+        });
+      },
+    );
+
+    const listDeletedSub = DeviceEventEmitter.addListener(
+      "customListDeleted",
+      (data) => {
+        setCustomListsData((prev) =>
+          prev.filter((list) => list.id !== data.listId),
+        );
+        updateCache((p) => {
+          p.customListsData = (p.customListsData || []).filter(
+            (list: any) => list.id !== data.listId,
+          );
+        });
+      },
+    );
+
+    const listRenamedSub = DeviceEventEmitter.addListener(
+      "customListRenamed",
+      (data) => {
+        setCustomListsData((prev) =>
+          prev.map((list) =>
+            list.id === data.listId ? { ...list, name: data.newName } : list,
+          ),
+        );
+        updateCache((p) => {
+          p.customListsData = (p.customListsData || []).map((list: any) =>
+            list.id === data.listId ? { ...list, name: data.newName } : list,
+          );
+        });
+      },
+    );
 
     return () => {
       subscription.remove();
@@ -301,11 +407,15 @@ export default function ProfileScreen() {
   const pickImage = async () => {
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
-      Alert.alert("Brak sieci", "Wymagane połączenie z internetem, aby zmienić zdjęcie.");
+      Alert.alert(
+        "Brak połączenia",
+        "Wymagane połączenie z internetem, aby zmienić zdjęcie.",
+      );
       return;
     }
 
-    const { status, canAskAgain } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const { status, canAskAgain } =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
         "Brak dostępu do galerii",
@@ -338,16 +448,22 @@ export default function ProfileScreen() {
         await updateDoc(userDocRef, { avatar: publicUrl });
 
         const reviewsRef = collection(db, "reviews");
-        const q = query(reviewsRef, where("userId", "==", auth.currentUser.uid));
+        const q = query(
+          reviewsRef,
+          where("userId", "==", auth.currentUser.uid),
+        );
         const querySnapshot = await getDocs(q);
 
         const updatePromises = querySnapshot.docs.map((reviewDoc) =>
           updateDoc(reviewDoc.ref, { avatar: publicUrl }),
         );
         await Promise.all(updatePromises);
-        DeviceEventEmitter.emit("avatarChanged", { userId: auth.currentUser.uid, newAvatar: publicUrl });
+        DeviceEventEmitter.emit("avatarChanged", {
+          userId: auth.currentUser.uid,
+          newAvatar: publicUrl,
+        });
         DeviceEventEmitter.emit("refreshProfile");
-      } catch (error) {
+      } catch {
         Alert.alert("Błąd", "Nie udało się przesłać zdjęcia na serwer.");
       }
     }
@@ -355,10 +471,13 @@ export default function ProfileScreen() {
 
   const handleSaveBio = async () => {
     if (!auth.currentUser) return;
-    
+
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
-      Alert.alert("Błąd", "Sprawdź połączenie internetowe, aby zapisać zmianę.");
+      Alert.alert(
+        "Błąd",
+        "Sprawdź połączenie internetowe, aby zapisać zmianę.",
+      );
       return;
     }
 
@@ -368,7 +487,7 @@ export default function ProfileScreen() {
       setUser((prev: any) => ({ ...prev, opis: editBioText.trim() }));
       setIsEditingBio(false);
       DeviceEventEmitter.emit("refreshProfile");
-    } catch (err) {
+    } catch {
       Alert.alert("Błąd", "Nie udało się zapisać nowego opisu.");
     }
   };
@@ -384,7 +503,11 @@ export default function ProfileScreen() {
   if (isLoading || !user) {
     return (
       <View style={globalStyles.container}>
-        <ActivityIndicator size="large" color={AppColors.primary} style={{ marginTop: 100 }} />
+        <ActivityIndicator
+          size="large"
+          color={AppColors.primary}
+          style={{ marginTop: 100 }}
+        />
       </View>
     );
   }
@@ -392,9 +515,12 @@ export default function ProfileScreen() {
   return (
     <View style={globalStyles.container}>
       <View style={globalStyles.header}>
-        <Text style={[globalStyles.headerText,]}>{user.nazwa_uzytkownika} </Text>
+        <Text style={[globalStyles.headerText]}>{user.nazwa_uzytkownika} </Text>
 
-        <TouchableOpacity style={styles.SettingsButton} onPress={() => router.push("/Settings")}>
+        <TouchableOpacity
+          style={styles.SettingsButton}
+          onPress={() => router.push("/Settings")}
+        >
           <Text style={styles.SettingsText}>
             <MaterialIcons name="settings" size={24} color="white" />
           </Text>
@@ -402,7 +528,7 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <ProfileHeader 
+        <ProfileHeader
           user={user}
           reviewCount={reviewCount}
           pickImage={pickImage}
@@ -416,33 +542,44 @@ export default function ProfileScreen() {
         <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
         <View style={styles.tabContentContainer}>
-          <View style={activeTab !== "favourites" ? { display: "none" } : undefined}>
+          <View
+            style={activeTab !== "favourites" ? { display: "none" } : undefined}
+          >
             <FavoritesTab data={favouritesData} />
           </View>
 
-          <View style={activeTab !== "reviews" ? { display: "none" } : undefined}>
+          <View
+            style={activeTab !== "reviews" ? { display: "none" } : undefined}
+          >
             <ReviewsTab
               data={reviewsData}
               isReadOnly={false}
               onDeleteReview={(id) => {
-                Alert.alert("Usuń recenzję", "Czy na pewno chcesz usunąć swoją recenzję?", [
-                  { text: "Anuluj", style: "cancel" },
-                  {
-                    text: "Usuń",
-                    style: "destructive",
-                    onPress: async () => {
-                      const netState = await NetInfo.fetch();
-                      if (!netState.isConnected) {
-                        Alert.alert("Błąd", "Brak sieci."); return;
-                      }
-                      DeviceEventEmitter.emit("reviewDeleted", { reviewId: id });
-                      deleteFirebaseReview(id).catch((err) => {
-                        console.error(err);
-                        DeviceEventEmitter.emit("refreshProfile");
-                      });
+                Alert.alert(
+                  "Usuń recenzję",
+                  "Czy na pewno chcesz usunąć swoją recenzję?",
+                  [
+                    { text: "Anuluj", style: "cancel" },
+                    {
+                      text: "Usuń",
+                      style: "destructive",
+                      onPress: async () => {
+                        const netState = await NetInfo.fetch();
+                        if (!netState.isConnected) {
+                          Alert.alert("Błąd", "Brak połączenia.");
+                          return;
+                        }
+                        DeviceEventEmitter.emit("reviewDeleted", {
+                          reviewId: id,
+                        });
+                        deleteFirebaseReview(id).catch((err) => {
+                          console.error(err);
+                          DeviceEventEmitter.emit("refreshProfile");
+                        });
+                      },
                     },
-                  },
-                ]);
+                  ],
+                );
               }}
             />
           </View>
@@ -464,7 +601,18 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  SettingsButton: { position: "absolute", top: 50, right: 20, backgroundColor: "rgba(0,0,0,0.5)", width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center", zIndex: 10 },
+  SettingsButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
   SettingsText: { color: "white", fontSize: 16, fontWeight: "bold" },
   tabContentContainer: { paddingHorizontal: 20, paddingBottom: 40 },
 });

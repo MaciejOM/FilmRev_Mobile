@@ -24,8 +24,18 @@ export function useResponsive() {
    * @param gap       gap between columns
    * @param cols      override column count (defaults to numGridColumns)
    */
-  const gridItemWidth = (paddingH: number, gap: number, cols = numGridColumns) =>
-    (width - paddingH * 2 - gap * (cols - 1)) / cols;
+  const gridItemWidth = (
+    paddingH: number,
+    gap: number,
+    cols = numGridColumns,
+  ) => (width - paddingH * 2 - gap * (cols - 1)) / cols;
 
-  return { width, height, isTablet, numGridColumns, backdropHeight, gridItemWidth };
+  return {
+    width,
+    height,
+    isTablet,
+    numGridColumns,
+    backdropHeight,
+    gridItemWidth,
+  };
 }

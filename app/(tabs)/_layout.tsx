@@ -13,7 +13,13 @@ export default function TabLayout() {
   // Zabezpieczenie: dopóki aplikacja sprawdza token w SecureStore, pokazujemy loader
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: AppColors.background, justifyContent: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: AppColors.background,
+          justifyContent: "center",
+        }}
+      >
         <ActivityIndicator size="large" color={AppColors.primary} />
       </View>
     );
@@ -36,7 +42,9 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "",
-          tabBarIcon: ({ color }) => <MaterialIcons size={30} name="home" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={30} name="home" color={color} />
+          ),
         }}
       />
 
@@ -44,7 +52,9 @@ export default function TabLayout() {
         name="search"
         options={{
           title: "",
-          tabBarIcon: ({ color }) => <MaterialIcons size={30} name="search" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={30} name="search" color={color} />
+          ),
         }}
       />
 
@@ -53,8 +63,10 @@ export default function TabLayout() {
         options={{
           title: "",
           // Dynamiczne chowanie zakładki - rekomendowane przez Expo Router
-          href: isLogged ? null : "/account", 
-          tabBarIcon: ({ color }) => <MaterialIcons size={30} name="account-circle" color={color} />,
+          href: isLogged ? null : "/account",
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={30} name="account-circle" color={color} />
+          ),
         }}
       />
 
@@ -63,8 +75,10 @@ export default function TabLayout() {
         options={{
           title: "",
           // Dynamiczne chowanie zakładki
-          href: isLogged ? "/Profile" : null, 
-          tabBarIcon: ({ color }) => <MaterialIcons size={30} name="person" color={color} />,
+          href: isLogged ? "/Profile" : null,
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons size={30} name="person" color={color} />
+          ),
         }}
       />
     </Tabs>

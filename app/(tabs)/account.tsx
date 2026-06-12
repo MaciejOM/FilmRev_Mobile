@@ -5,7 +5,11 @@ import NetInfo from "@react-native-community/netinfo";
 import * as Google from "expo-auth-session/providers/google";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from "firebase/auth";
+import {
+  GoogleAuthProvider,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -26,7 +30,7 @@ export default function AccountScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   // expo-auth-session Google provider — works in Expo Go AND compiled APK
-  const [_request, response, promptAsync] = Google.useAuthRequest({
+  const [, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
@@ -56,7 +60,10 @@ export default function AccountScreen() {
   const handleGoogleLogin = async () => {
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
-      Alert.alert("Brak sieci", "Sprawdź połączenie z internetem i spróbuj ponownie.");
+      Alert.alert(
+        "Brak połączenia",
+        "Sprawdź połączenie z internetem i spróbuj ponownie.",
+      );
       return;
     }
     setIsSubmitting(true);
@@ -85,7 +92,10 @@ export default function AccountScreen() {
     } catch (error: any) {
       console.error(error);
       if (error.message === "network-error") {
-        Alert.alert("Brak połączenia", "Sprawdź połączenie z internetem i spróbuj ponownie.");
+        Alert.alert(
+          "Brak połączenia",
+          "Sprawdź połączenie z internetem i spróbuj ponownie.",
+        );
       } else {
         Alert.alert("Błąd", "Nieprawidłowy e-mail lub hasło!");
       }
@@ -152,7 +162,12 @@ export default function AccountScreen() {
           onPress={handleGoogleLogin}
           disabled={isSubmitting}
         >
-          <MaterialIcons name="login" size={20} color="white" style={{ marginRight: 8 }} />
+          <MaterialIcons
+            name="login"
+            size={20}
+            color="white"
+            style={{ marginRight: 8 }}
+          />
           <Text style={styles.buttonText}>Zaloguj przez Google</Text>
         </TouchableOpacity>
 

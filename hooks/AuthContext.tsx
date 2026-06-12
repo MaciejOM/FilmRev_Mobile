@@ -1,5 +1,11 @@
 import { onAuthStateChanged, User } from "firebase/auth";
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { auth } from "./firebaseConfig";
 
 interface AuthContextType {
@@ -10,7 +16,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLogged, setIsLogged] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Zabezpieczenie przed zawieszeniem aplikacji w stanie ładowania w razie błędu autoryzacji
         console.error("Błąd podczas nasłuchiwania stanu autoryzacji:", error);
         setIsLoading(false);
-      }
+      },
     );
 
     return unsubscribe;
@@ -42,14 +50,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Optymalizacja: zapobiega niepotrzebnym renderowaniom komponentów podrzędnych
   const value = useMemo(
     () => ({ user, isLogged, isLoading }),
-    [user, isLogged, isLoading]
+    [user, isLogged, isLoading],
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 // Hook do szybkiego używania w dowolnym ekranie aplikacji

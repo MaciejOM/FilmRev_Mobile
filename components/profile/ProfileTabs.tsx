@@ -17,7 +17,12 @@ const ProfileTabs = ({ activeTab, onTabChange }: ProfileTabsProps) => {
         style={[styles.tab, activeTab === "favourites" && styles.activeTab]}
         onPress={() => onTabChange("favourites")}
       >
-        <Text style={[styles.tabText, activeTab === "favourites" && styles.activeTabText]}>
+        <Text
+          style={[
+            styles.tabText,
+            activeTab === "favourites" && styles.activeTabText,
+          ]}
+        >
           Ulubione
         </Text>
       </TouchableOpacity>
@@ -26,7 +31,12 @@ const ProfileTabs = ({ activeTab, onTabChange }: ProfileTabsProps) => {
         style={[styles.tab, activeTab === "reviews" && styles.activeTab]}
         onPress={() => onTabChange("reviews")}
       >
-        <Text style={[styles.tabText, activeTab === "reviews" && styles.activeTabText]}>
+        <Text
+          style={[
+            styles.tabText,
+            activeTab === "reviews" && styles.activeTabText,
+          ]}
+        >
           Recenzje
         </Text>
       </TouchableOpacity>
@@ -35,7 +45,12 @@ const ProfileTabs = ({ activeTab, onTabChange }: ProfileTabsProps) => {
         style={[styles.tab, activeTab === "lists" && styles.activeTab]}
         onPress={() => onTabChange("lists")}
       >
-        <Text style={[styles.tabText, activeTab === "lists" && styles.activeTabText]}>
+        <Text
+          style={[
+            styles.tabText,
+            activeTab === "lists" && styles.activeTabText,
+          ]}
+        >
           Listy
         </Text>
       </TouchableOpacity>

@@ -24,9 +24,10 @@ const AVAILABLE_TAGS = ["Bez spoilerów", "Pierwsze wrażenia"];
 
 export default function ReviewEditor() {
   const router = useRouter();
-  
+
   // Pobieramy dodatkowe parametry przesłane z FilmDetail
-  const { id, type, title, release_date, backdrop, gatunki } = useLocalSearchParams();
+  const { id, type, title, release_date, backdrop, gatunki } =
+    useLocalSearchParams();
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -43,13 +44,15 @@ export default function ReviewEditor() {
           const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
           if (snap.exists() && isMounted) setUserData(snap.data());
         }
-      } catch (err) {
+      } catch {
         console.warn("Nie udało się pobrać danych użytkownika w tle");
       }
     };
     fetchUser();
-    
-    return () => { isMounted = false; };
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const toggleTag = useCallback((tag: string) => {
@@ -66,7 +69,10 @@ export default function ReviewEditor() {
 
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
-      Alert.alert("Brak sieci", "Wymagane połączenie z internetem, aby dodać recenzję.");
+      Alert.alert(
+        "Brak połączenia",
+        "Wymagane połączenie z internetem, aby dodać recenzję.",
+      );
       return;
     }
 
@@ -89,7 +95,7 @@ export default function ReviewEditor() {
       if (result && result.success) {
         // OPTYMALIZACJA: Pakujemy tu od razu pełne dane filmu!
         const optimisticReview = {
-          id: result.id, 
+          id: result.id,
           movieId: documentId,
           userId: userAuth.uid,
           nazwa_uzytkownika: userData?.nazwa_uzytkownika || "Użytkownik",
@@ -105,8 +111,8 @@ export default function ReviewEditor() {
             nazwa: title || "Nieznany tytuł",
             rok: release_date || "---",
             backdrop: backdrop || "",
-            gatunki: gatunki ? gatunki.toString().split(", ") : []
-          }
+            gatunki: gatunki ? gatunki.toString().split(", ") : [],
+          },
         };
 
         DeviceEventEmitter.emit("newReviewAdded", optimisticReview);
@@ -117,7 +123,10 @@ export default function ReviewEditor() {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert("Błąd", "Nie udało się zapisać recenzji. Sprawdź połączenie.");
+      Alert.alert(
+        "Błąd",
+        "Nie udało się zapisać recenzji. Sprawdź połączenie.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -249,20 +258,70 @@ export default function ReviewEditor() {
 }
 
 const styles = StyleSheet.create({
-  closeButton: { position: "absolute", top: 50, left: 20, backgroundColor: "rgba(0,0,0,0.5)", width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center", zIndex: 10 },
+  closeButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
   closeButtonText: { color: "white", fontSize: 30, fontWeight: "bold" },
-  AcceptButton: { position: "absolute", top: 50, right: 20, backgroundColor: "rgba(0,0,0,0.5)", width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center", zIndex: 10 },
+  AcceptButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
   AcceptButtonText: { color: "white", fontSize: 20, fontWeight: "bold" },
   editorContainer: { padding: 20, flex: 1 },
-  label: { color: "white", fontSize: 16, fontWeight: "bold", marginBottom: 10, marginTop: 10 },
+  label: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 10,
+    marginTop: 10,
+  },
   starsContainer: { flexDirection: "row", marginBottom: 20 },
   star: { fontSize: 45, marginRight: 10 },
   starSelected: { color: "#FFD700" },
   starUnselected: { color: "#555" },
   tagsScroll: { marginBottom: 20, maxHeight: 40 },
-  tagChip: { backgroundColor: "#3a3c4f", paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: "#555", justifyContent: "center" },
-  tagChipSelected: { backgroundColor: "rgba(228, 48, 87, 0.2)", borderColor: AppColors.primary },
+  tagChip: {
+    backgroundColor: "#3a3c4f",
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#555",
+    justifyContent: "center",
+  },
+  tagChipSelected: {
+    backgroundColor: "rgba(228, 48, 87, 0.2)",
+    borderColor: AppColors.primary,
+  },
   tagText: { color: "#ccc", fontSize: 14 },
   tagTextSelected: { color: AppColors.primary, fontWeight: "bold" },
-  reviewInput: { backgroundColor: "#3a3c4f", borderRadius: 10, padding: 15, height: 200, textAlignVertical: "top", color: "white", fontSize: 16, borderWidth: 1, borderColor: "#555" },
+  reviewInput: {
+    backgroundColor: "#3a3c4f",
+    borderRadius: 10,
+    padding: 15,
+    height: 200,
+    textAlignVertical: "top",
+    color: "white",
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#555",
+  },
 });

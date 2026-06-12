@@ -51,7 +51,10 @@ export default function SettingsScreen() {
 
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
-      Alert.alert("Uwaga", "Jesteś offline. Twoje dane zostaną wyczyszczone lokalnie, ale pełne wylogowanie z serwera nastąpi po odzyskaniu połączenia.");
+      Alert.alert(
+        "Uwaga",
+        "Jesteś offline. Twoje dane zostaną wyczyszczone lokalnie, ale pełne wylogowanie z serwera nastąpi po odzyskaniu połączenia.",
+      );
     }
 
     Alert.alert(
@@ -73,7 +76,10 @@ export default function SettingsScreen() {
               router.replace("/account");
             } catch (error) {
               console.error(error);
-              Alert.alert("Błąd", "Nie udało się wylogować. Sprawdź połączenie z internetem.");
+              Alert.alert(
+                "Błąd",
+                "Nie udało się wylogować. Sprawdź połączenie z internetem.",
+              );
             }
           },
         },
@@ -85,10 +91,13 @@ export default function SettingsScreen() {
   // Automatyczne wysyłanie e-maila z linkiem do resetu hasła
   const handleChangePassword = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
-      Alert.alert("Brak sieci", "Wymagane połączenie z internetem, aby wysłać link resetujący hasło.");
+      Alert.alert(
+        "Brak połączenia",
+        "Wymagane połączenie z internetem, aby wysłać link resetujący hasło.",
+      );
       return;
     }
 
@@ -126,7 +135,7 @@ export default function SettingsScreen() {
   const handleSaveUsername = async () => {
     const user = auth.currentUser;
     if (!user) return;
-    
+
     if (newName.trim().length < 3) {
       Alert.alert("Błąd", "Nazwa użytkownika musi mieć co najmniej 3 znaki.");
       return;
@@ -134,7 +143,10 @@ export default function SettingsScreen() {
 
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
-      Alert.alert("Brak sieci", "Połącz się z internetem, aby zaktualizować nazwę użytkownika.");
+      Alert.alert(
+        "Brak połączenia",
+        "Połącz się z internetem, aby zaktualizować nazwę użytkownika.",
+      );
       return;
     }
 
@@ -178,7 +190,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // Całkowite wymazywanie konta zapobiegające powstawaniu "Danych-Widmo"
+  // Całkowite wymazywanie konta
   const confirmAndDeleteAccount = async () => {
     const user = auth.currentUser;
     if (!user || !user.email) return;
@@ -195,7 +207,10 @@ export default function SettingsScreen() {
 
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
-      Alert.alert("Brak sieci", "Wymagane połączenie z internetem, aby bezpiecznie usunąć konto z serwerów.");
+      Alert.alert(
+        "Brak połączenia",
+        "Wymagane połączenie z internetem, aby usunąć konto.",
+      );
       return;
     }
 
@@ -242,10 +257,7 @@ export default function SettingsScreen() {
       await deleteDoc(doc(db, "users", user.uid));
       await deleteUser(user);
 
-      Alert.alert(
-        "Konto usunięte",
-        "Twoje konto, recenzje oraz powiązane średnie ocen zostały pomyślnie i bezpiecznie usunięte.",
-      );
+      Alert.alert("Konto usunięte", "Twoje konto zostało pomyślnie usunięte.");
       router.replace("/account");
     } catch (error: any) {
       console.error("Błąd usuwania konta:", error);
@@ -256,7 +268,7 @@ export default function SettingsScreen() {
       ) {
         Alert.alert(
           "Niepoprawne hasło",
-          "Podane hasło jest błędne. Jeśli logowałeś się przez Google, nie możesz usunąć konta w ten sposób (musisz usunąć dostęp przez panel konta Google).",
+          "Podane hasło jest błędne. Jeśli logowałeś się przez Google, musisz usunąć dostęp przez panel konta Google.",
         );
       } else {
         Alert.alert(

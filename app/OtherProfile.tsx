@@ -2,7 +2,7 @@ import { AppColors, globalStyles } from "@/constants/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import NetInfo from "@react-native-community/netinfo";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   DeviceEventEmitter,
@@ -10,12 +10,19 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 import { db } from "@/hooks/firebaseConfig";
 import { getUserList, getUserReviews } from "@/hooks/firebaseDatabase";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 
 import FavoritesTab from "@/components/profile/FavoritesTab";
 import ListsTab from "@/components/profile/ListsTab";
@@ -38,7 +45,7 @@ export default function OtherProfileScreen() {
   const [customListsData, setCustomListsData] = useState<any[]>([]);
   const [watchedData, setWatchedData] = useState<any[]>([]);
 
-  const loadTargetUser = async () => {
+  const loadTargetUser = useCallback(async () => {
     if (!userId) return;
 
     try {
@@ -47,12 +54,22 @@ export default function OtherProfileScreen() {
 
       const netState = await NetInfo.fetch();
       if (!netState.isConnected) {
-        throw new Error("Brak sieci");
+        throw new Error("Brak połączenia");
       }
 
-      const listsQuery = query(collection(db, "custom_lists"), where("userId", "==", userId));
+      const listsQuery = query(
+        collection(db, "custom_lists"),
+        where("userId", "==", userId),
+      );
 
-      const [userDocSnap, favData, watchData, watchedRawData, revData, listsSnap] = await Promise.all([
+      const [
+        userDocSnap,
+        favData,
+        watchData,
+        watchedRawData,
+        revData,
+        listsSnap,
+      ] = await Promise.all([
         getDoc(doc(db, "users", userId)),
         getUserList(userId, "favourites"),
         getUserList(userId, "watchlist"),
@@ -63,7 +80,10 @@ export default function OtherProfileScreen() {
 
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
-        const authorCustomLists = listsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const authorCustomLists = listsSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
 
         setUser(userData);
         setFavouritesData([...favData.movies, ...favData.tv]);
@@ -77,29 +97,42 @@ export default function OtherProfileScreen() {
       }
     } catch (err: any) {
       console.error("Błąd pobierania profilu:", err);
-      setError(err.message === "Brak sieci" ? "Brak połączenia z siecią." : "Wystąpił problem z wczytaniem danych.");
+      setError(
+        err.message === "Brak połączenia"
+          ? "Brak połączenia z siecią."
+          : "Wystąpił problem z wczytaniem danych.",
+      );
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadTargetUser();
   }, [userId]);
 
   useEffect(() => {
-    const likeRevSub = DeviceEventEmitter.addListener("reviewLikeToggled", (data) => {
-      setReviewsData((prev) =>
-        prev.map((r) => r.id === data.reviewId ? { ...r, likes: data.newLikes } : r)
-      );
-    });
+    loadTargetUser();
+  }, [loadTargetUser]);
+
+  useEffect(() => {
+    const likeRevSub = DeviceEventEmitter.addListener(
+      "reviewLikeToggled",
+      (data) => {
+        setReviewsData((prev) =>
+          prev.map((r) =>
+            r.id === data.reviewId ? { ...r, likes: data.newLikes } : r,
+          ),
+        );
+      },
+    );
     return () => likeRevSub.remove();
   }, []);
 
   if (isLoading) {
     return (
       <View style={globalStyles.container}>
-        <ActivityIndicator size="large" color={AppColors.primary} style={{ marginTop: 100 }} />
+        <ActivityIndicator
+          size="large"
+          color={AppColors.primary}
+          style={{ marginTop: 100 }}
+        />
       </View>
     );
   }
@@ -107,15 +140,22 @@ export default function OtherProfileScreen() {
   if (error || !user) {
     return (
       <View style={globalStyles.centerContainer}>
-        <Text style={{ color: "white", fontSize: 18, marginBottom: 15 }}>{error || "Nie znaleziono użytkownika."}</Text>
-        
+        <Text style={{ color: "white", fontSize: 18, marginBottom: 15 }}>
+          {error || "Nie znaleziono użytkownika."}
+        </Text>
+
         {error && error.includes("sieci") && (
           <TouchableOpacity onPress={loadTargetUser} style={styles.retryButton}>
-            <Text style={{ color: "white", fontWeight: "bold" }}>Spróbuj ponownie</Text>
+            <Text style={{ color: "white", fontWeight: "bold" }}>
+              Spróbuj ponownie
+            </Text>
           </TouchableOpacity>
         )}
-        
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginTop: 20 }}
+        >
           <Text style={{ color: AppColors.primary, fontSize: 16 }}>Wróć</Text>
         </TouchableOpacity>
       </View>
@@ -124,38 +164,55 @@ export default function OtherProfileScreen() {
 
   return (
     <View style={globalStyles.container}>
-      <View style={[globalStyles.header, { flexDirection: "row", justifyContent: "flex-start", alignItems: "flex-end", paddingLeft: 15 }]}>
-        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+      <View
+        style={[
+          globalStyles.header,
+          {
+            flexDirection: "row",
+            justifyContent: "flex-start",
+            alignItems: "flex-end",
+            paddingLeft: 15,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={() => router.back()}
+        >
           <Text style={styles.closeButtonText}>
             <MaterialIcons name="keyboard-arrow-left" size={32} color="white" />
           </Text>
         </TouchableOpacity>
-        <Text style={[globalStyles.headerText, { marginLeft: 60}]}>{user.nazwa_uzytkownika}</Text>
+        <Text style={[globalStyles.headerText, { marginLeft: 60 }]}>
+          {user.nazwa_uzytkownika}
+        </Text>
       </View>
 
-      
-
       <ScrollView showsVerticalScrollIndicator={false}>
-        <ProfileHeader 
+        <ProfileHeader
           user={user}
           reviewCount={reviewCount}
-          pickImage={() => {}} 
+          pickImage={() => {}}
           isEditingBio={false}
           setIsEditingBio={() => {}}
           editBioText={""}
           setEditBioText={() => {}}
           handleSaveBio={() => {}}
-          isReadOnly={true} 
+          isReadOnly={true}
         />
 
         <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
         <View style={styles.tabContentContainer}>
-          <View style={activeTab !== "favourites" ? { display: "none" } : undefined}>
+          <View
+            style={activeTab !== "favourites" ? { display: "none" } : undefined}
+          >
             <FavoritesTab data={favouritesData} />
           </View>
 
-          <View style={activeTab !== "reviews" ? { display: "none" } : undefined}>
+          <View
+            style={activeTab !== "reviews" ? { display: "none" } : undefined}
+          >
             <ReviewsTab data={reviewsData} isReadOnly={true} />
           </View>
 
@@ -169,16 +226,31 @@ export default function OtherProfileScreen() {
             />
           </View>
         </View>
-
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  closeButton: { position: "absolute", top: 50, left: 20, backgroundColor: "rgba(0,0,0,0.5)", width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center", zIndex: 10 },
+  closeButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
   closeButtonText: { color: "white", fontSize: 30, fontWeight: "bold" },
   backButton: { paddingBottom: 15 },
   tabContentContainer: { paddingHorizontal: 20, paddingBottom: 40 },
-  retryButton: { backgroundColor: AppColors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryButton: {
+    backgroundColor: AppColors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
 });

@@ -21,7 +21,7 @@ interface ProfileHeaderProps {
   editBioText: string;
   setEditBioText: (val: string) => void;
   handleSaveBio: () => void;
-  isReadOnly?: boolean; 
+  isReadOnly?: boolean;
 }
 
 const ProfileHeader = ({
@@ -38,13 +38,22 @@ const ProfileHeader = ({
   return (
     <View style={styles.container}>
       <View style={styles.topProfileSection}>
-        <TouchableOpacity onPress={isReadOnly ? undefined : pickImage} style={styles.avatarContainer} disabled={isReadOnly}>
+        <TouchableOpacity
+          onPress={isReadOnly ? undefined : pickImage}
+          style={styles.avatarContainer}
+          disabled={isReadOnly}
+        >
           {user.avatar ? (
-            <Image source={{ uri: user.avatar }} style={styles.avatarImage} transition={200} contentFit="cover" />
+            <Image
+              source={{ uri: user.avatar }}
+              style={styles.avatarImage}
+              transition={200}
+              contentFit="cover"
+            />
           ) : (
             <Text style={styles.avatarPlaceholderText}>
               {user.nazwa_uzytkownika?.charAt(0).toUpperCase() || "?"}
-            </Text> 
+            </Text>
           )}
         </TouchableOpacity>
 
@@ -61,7 +70,6 @@ const ProfileHeader = ({
       </View>
 
       <View style={styles.bioContainer}>
-
         {isEditingBio && !isReadOnly ? (
           <View>
             <TextInput
@@ -98,9 +106,14 @@ const ProfileHeader = ({
           >
             <Text style={styles.bioText}>{user.opis || DEFAULT_BIO}</Text>
             {!isReadOnly && (
-            <Text style={styles.editBioHint}>
-                <MaterialIcons name="edit" size={14} color={AppColors.textGray} /> Edytuj opis
-            </Text>
+              <Text style={styles.editBioHint}>
+                <MaterialIcons
+                  name="edit"
+                  size={14}
+                  color={AppColors.textGray}
+                />{" "}
+                Edytuj opis
+              </Text>
             )}
           </TouchableOpacity>
         )}
@@ -113,21 +126,80 @@ export default memo(ProfileHeader);
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
-  topProfileSection: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
-  avatarContainer: { width: 90, height: 90, borderRadius: 45, backgroundColor: "#3a3c4f", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: AppColors.primary, overflow: "hidden", marginRight: 20 },
+  topProfileSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  avatarContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "#3a3c4f",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: AppColors.primary,
+    overflow: "hidden",
+    marginRight: 20,
+  },
   avatarImage: { width: "100%", height: "100%" },
   avatarPlaceholderText: { fontSize: 36, color: "white", fontWeight: "bold" },
-  statsContainer: { flex: 1, flexDirection: "row", justifyContent: "space-around" },
+  statsContainer: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
   statBox: { alignItems: "center" },
   statNumber: { color: "white", fontSize: 20, fontWeight: "bold" },
   statLabel: { color: AppColors.textGray, fontSize: 13, marginTop: 2 },
   bioContainer: { marginTop: 5 },
-  usernameText: { color: "white", fontSize: 22, fontWeight: "bold", marginBottom: 8, textTransform: "capitalize" },
+  usernameText: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 8,
+    textTransform: "capitalize",
+  },
   bioText: { color: "#ddd", fontSize: 14, lineHeight: 20 },
-  editBioHint: { color: AppColors.textGray, fontSize: 12, marginTop: 8, fontStyle: "italic" },
-  bioInput: { backgroundColor: "#3a3c4f", color: "white", borderRadius: 8, padding: 12, minHeight: 60, textAlignVertical: "top", borderWidth: 1, borderColor: "#555" },
-  charCount: { color: AppColors.textGray, fontSize: 11, textAlign: "right", marginTop: 4 },
-  bioActions: { flexDirection: "row", justifyContent: "flex-end", marginTop: 10, gap: 15 },
-  bioCancelText: { color: AppColors.textGray, fontSize: 14, fontWeight: "bold", padding: 5 },
-  bioSaveText: { color: AppColors.primary, fontSize: 14, fontWeight: "bold", padding: 5 },
+  editBioHint: {
+    color: AppColors.textGray,
+    fontSize: 12,
+    marginTop: 8,
+    fontStyle: "italic",
+  },
+  bioInput: {
+    backgroundColor: "#3a3c4f",
+    color: "white",
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 60,
+    textAlignVertical: "top",
+    borderWidth: 1,
+    borderColor: "#555",
+  },
+  charCount: {
+    color: AppColors.textGray,
+    fontSize: 11,
+    textAlign: "right",
+    marginTop: 4,
+  },
+  bioActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 10,
+    gap: 15,
+  },
+  bioCancelText: {
+    color: AppColors.textGray,
+    fontSize: 14,
+    fontWeight: "bold",
+    padding: 5,
+  },
+  bioSaveText: {
+    color: AppColors.primary,
+    fontSize: 14,
+    fontWeight: "bold",
+    padding: 5,
+  },
 });

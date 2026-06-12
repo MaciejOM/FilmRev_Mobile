@@ -80,7 +80,10 @@ export default function RegisterScreen() {
       setConfirmPassword("");
     } catch (error: any) {
       if (error.message === "network-error") {
-        Alert.alert("Brak połączenia", "Sprawdź połączenie z internetem i spróbuj ponownie.");
+        Alert.alert(
+          "Brak połączenia",
+          "Sprawdź połączenie z internetem i spróbuj ponownie.",
+        );
       } else if (error.code === "auth/email-already-in-use") {
         Alert.alert("Błąd", "Ten adres e-mail jest już zajęty!");
       } else if (error.code === "auth/invalid-email") {

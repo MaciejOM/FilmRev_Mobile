@@ -2,7 +2,13 @@ import { AppColors, globalStyles } from "@/constants/theme";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { memo } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface HomeCategorySectionProps {
   title: string;
@@ -10,7 +16,11 @@ interface HomeCategorySectionProps {
   data: any[];
 }
 
-const HomeCategorySection = ({ title, categoryParam, data }: HomeCategorySectionProps) => {
+const HomeCategorySection = ({
+  title,
+  categoryParam,
+  data,
+}: HomeCategorySectionProps) => {
   const router = useRouter();
 
   if (!data || data.length === 0) return null;
@@ -33,7 +43,9 @@ const HomeCategorySection = ({ title, categoryParam, data }: HomeCategorySection
       <FlatList
         data={data}
         // Bardziej unikalny klucz zapobiegający problemom z renderowaniem list
-        keyExtractor={(item, index) => `${categoryParam}_${item.id || item.tmdb_id || index}`}
+        keyExtractor={(item, index) =>
+          `${categoryParam}_${item.id || item.tmdb_id || index}`
+        }
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContent}
@@ -45,18 +57,35 @@ const HomeCategorySection = ({ title, categoryParam, data }: HomeCategorySection
                 pathname: "/FilmDetail",
                 params: {
                   id: item.id || item.tmdb_id,
-                  title: item.searchTitle || item.title || item.name || item.nazwa,
-                  release_date: item.searchDate || item.release_date || item.first_air_date || item.rok,
+                  title:
+                    item.searchTitle || item.title || item.name || item.nazwa,
+                  release_date:
+                    item.searchDate ||
+                    item.release_date ||
+                    item.first_air_date ||
+                    item.rok,
                   overview: item.overview,
-                  backdrop: item.backdrop_path || item.backdrop || item.poster_path || item.plakat,
-                  gatunki: item.gatunki ? (Array.isArray(item.gatunki) ? item.gatunki.join(", ") : item.gatunki) : "",
+                  backdrop:
+                    item.backdrop_path ||
+                    item.backdrop ||
+                    item.poster_path ||
+                    item.plakat,
+                  gatunki: item.gatunki
+                    ? Array.isArray(item.gatunki)
+                      ? item.gatunki.join(", ")
+                      : item.gatunki
+                    : "",
                   type: item.type || "movie",
                 },
               })
             }
           >
             <Image
-              source={{ uri: "https://image.tmdb.org/t/p/w154/" + (item.poster_path || item.plakat) }}
+              source={{
+                uri:
+                  "https://image.tmdb.org/t/p/w154/" +
+                  (item.poster_path || item.plakat),
+              }}
               style={globalStyles.filmImage}
               contentFit="cover"
               transition={200} // Łagodne przejście przy ładowaniu obrazka
@@ -73,9 +102,32 @@ export default memo(HomeCategorySection);
 
 const styles = StyleSheet.create({
   sectionContainer: { marginBottom: 5 },
-  sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingRight: 20, marginTop: 25, marginBottom: 10 },
-  categoryText: { marginLeft: 20, fontSize: 18, fontWeight: "bold", color: "white" },
-  chevron: { color: AppColors.textGray, fontSize: 24, fontWeight: "bold", lineHeight: 24 },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingRight: 20,
+    marginTop: 25,
+    marginBottom: 10,
+  },
+  categoryText: {
+    marginLeft: 20,
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "white",
+  },
+  chevron: {
+    color: AppColors.textGray,
+    fontSize: 24,
+    fontWeight: "bold",
+    lineHeight: 24,
+  },
   horizontalListContent: { paddingLeft: 20, paddingRight: 5 },
-  ratingText: { color: "#FFD700", fontSize: 12, fontWeight: "bold", marginTop: 5, textAlign: "center" },
+  ratingText: {
+    color: "#FFD700",
+    fontSize: 12,
+    fontWeight: "bold",
+    marginTop: 5,
+    textAlign: "center",
+  },
 });

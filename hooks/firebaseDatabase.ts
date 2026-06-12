@@ -1,6 +1,7 @@
-// Importy 
+// Importy
 import { db } from "@/hooks/firebaseConfig";
 import NetInfo from "@react-native-community/netinfo";
+import { DeviceEventEmitter } from "react-native";
 import {
   addDoc,
   arrayRemove,
@@ -23,7 +24,9 @@ import {
 const ensureNetworkConnection = async () => {
   const state = await NetInfo.fetch();
   if (!state.isConnected) {
-    throw new Error("Brak połączenia z internetem. Sprawdź swoje połączenie i spróbuj ponownie.");
+    throw new Error(
+      "Brak połączenia z internetem. Sprawdź swoje połączenie i spróbuj ponownie.",
+    );
   }
 };
 
@@ -86,7 +89,7 @@ export const syncMediaToFirestore = async (
 export const getMediaFromFirestore = async (type: "movie" | "tv") => {
   try {
     await ensureNetworkConnection();
-    
+
     const q = query(collection(db, "movies"), where("typ", "==", type));
     const querySnapshot = await getDocs(q);
     const media: any[] = [];
@@ -131,7 +134,7 @@ export const addFirebaseReview = async (
     // Wywołanie przeliczenia średniej oceny przy dodaniu recenzji
     await updateMovieAverageRating(movieId);
 
-    return { success: true, id: docRef.id }; 
+    return { success: true, id: docRef.id };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -140,7 +143,7 @@ export const addFirebaseReview = async (
 // Pobieranie wszystkich recenzji dla danej produkcji
 export const getFirebaseReviewsForFilm = async (movieId: string) => {
   if (!movieId) return [];
-  
+
   try {
     await ensureNetworkConnection();
 
@@ -221,7 +224,7 @@ export const updateFirebaseReview = async (
 // Aktualizowanie średniej ocen dla danej produkcji (funkcja pomocnicza)
 export const updateMovieAverageRating = async (movieId: string) => {
   if (!movieId) return;
-  
+
   try {
     // Tutaj nie dajemy ensureNetworkConnection, bo funkcja wywoływana jest wewnątrz innych, które już to sprawdzają
     const q = query(collection(db, "reviews"), where("movieId", "==", movieId));
@@ -245,6 +248,12 @@ export const updateMovieAverageRating = async (movieId: string) => {
     await updateDoc(movieRef, {
       vote_average: newAverage,
     });
+
+    // Powiadamiamy MediaContext, by od razu zaktualizował średnią ocenę trzymaną
+    // w pamięci. Bez tego ekran główny ("Najlepiej oceniane") i wyszukiwarka
+    // pokazywałyby starą ocenę aż do następnego uruchomienia aplikacji,
+    // bo dane TMDB pobierane są tylko raz na sesję.
+    DeviceEventEmitter.emit("movieRatingUpdated", { movieId, newAverage });
 
     console.log(
       `Zaktualizowano średnią ocen dla ${movieId} na: ${newAverage} (Liczba opinii: ${reviewsCount})`,
@@ -380,7 +389,8 @@ export const getUserReviews = async (userId: string) => {
     const reviews = await Promise.all(reviewsPromises);
 
     return reviews.sort(
-      (a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0),
+      (a: any, b: any) =>
+        (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0),
     );
   } catch (error) {
     console.error("Błąd pobierania recenzji użytkownika:", error);
@@ -418,12 +428,15 @@ export const getCustomListDetails = async (listId: string) => {
         const mediaSnap = await getDoc(mediaRef);
 
         if (mediaSnap.exists()) {
-          return { type: isMovie ? "movie" : "tv", data: { id: mediaSnap.id, ...mediaSnap.data() } };
+          return {
+            type: isMovie ? "movie" : "tv",
+            data: { id: mediaSnap.id, ...mediaSnap.data() },
+          };
         } else {
           // Fallback do TMDB jeśli brakuje w Firestore
           const tmdbType = isMovie ? "movie" : "tv";
           const res = await fetch(
-            `https://api.themoviedb.org/3/${tmdbType}/${cleanId}?api_key=${tmdbKey}&language=pl-PL`
+            `https://api.themoviedb.org/3/${tmdbType}/${cleanId}?api_key=${tmdbKey}&language=pl-PL`,
           );
           const json = await res.json();
 
@@ -439,7 +452,7 @@ export const getCustomListDetails = async (listId: string) => {
                 overview: json.overview,
                 rok: json.release_date || json.first_air_date || "---",
                 typ: tmdbType,
-              }
+              },
             };
           }
         }
@@ -453,8 +466,12 @@ export const getCustomListDetails = async (listId: string) => {
     const resolvedMedia = await Promise.all(mediaPromises);
 
     // Sortowanie wyników do odpowiednich tablic
-    const moviesData = resolvedMedia.filter((item) => item?.type === "movie").map((item) => item?.data);
-    const tvData = resolvedMedia.filter((item) => item?.type === "tv").map((item) => item?.data);
+    const moviesData = resolvedMedia
+      .filter((item) => item?.type === "movie")
+      .map((item) => item?.data);
+    const tvData = resolvedMedia
+      .filter((item) => item?.type === "tv")
+      .map((item) => item?.data);
 
     return {
       ...listData,

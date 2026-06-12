@@ -49,11 +49,20 @@ export default function ResetPasswordScreen() {
     } catch (error: any) {
       console.error(error);
       if (error.message === "network-error") {
-        Alert.alert("Brak połączenia", "Sprawdź połączenie z internetem i spróbuj ponownie.");
-      } else if (error.code === "auth/user-not-found" || error.code === "auth/invalid-email") {
-         Alert.alert("Błąd", "Nie znaleziono konta z podanym adresem e-mail.");
+        Alert.alert(
+          "Brak połączenia",
+          "Sprawdź połączenie z internetem i spróbuj ponownie.",
+        );
+      } else if (
+        error.code === "auth/user-not-found" ||
+        error.code === "auth/invalid-email"
+      ) {
+        Alert.alert("Błąd", "Nie znaleziono konta z podanym adresem e-mail.");
       } else {
-         Alert.alert("Błąd", "Wystąpił problem z wysłaniem linku. Spróbuj ponownie później.");
+        Alert.alert(
+          "Błąd",
+          "Wystąpił problem z wysłaniem linku. Spróbuj ponownie później.",
+        );
       }
     } finally {
       setIsSubmitting(false);
@@ -136,5 +145,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  RegisterText: { fontSize: 16, color: "white", margin: 20, textAlign: "center", lineHeight: 22 },
+  RegisterText: {
+    fontSize: 16,
+    color: "white",
+    margin: 20,
+    textAlign: "center",
+    lineHeight: 22,
+  },
 });

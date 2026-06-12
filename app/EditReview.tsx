@@ -18,6 +18,7 @@ import {
 
 import { updateFirebaseReview } from "@/hooks/firebaseDatabase";
 
+// Tagi recenzji
 const AVAILABLE_TAGS = ["Bez spoilerów", "Pierwsze wrażenia"];
 
 export default function EditReview() {
@@ -45,7 +46,10 @@ export default function EditReview() {
 
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
-      Alert.alert("Brak sieci", "Wymagane połączenie z internetem, aby zaktualizować recenzję.");
+      Alert.alert(
+        "Brak połączenia",
+        "Wymagane połączenie z internetem, aby zaktualizować recenzję.",
+      );
       return;
     }
 
@@ -54,7 +58,9 @@ export default function EditReview() {
 
     try {
       if (!reviewId || String(reviewId).includes(".")) {
-         throw new Error("Poczekaj chwilę na pełną synchronizację danych z serwerem przed edycją nowej recenzji.");
+        throw new Error(
+          "Poczekaj chwilę na pełną synchronizację danych z serwerem przed edycją nowej recenzji.",
+        );
       }
 
       await updateFirebaseReview(
@@ -76,14 +82,19 @@ export default function EditReview() {
       router.back();
     } catch (error: any) {
       console.error(error);
-      Alert.alert("Błąd", error.message || "Nie udało się zaktualizować recenzji.");
+      Alert.alert(
+        "Błąd",
+        error.message || "Nie udało się zaktualizować recenzji.",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleBackPress = useCallback(() => {
-    const initialTagsArray = initialTags ? JSON.parse(initialTags as string) : [];
+    const initialTagsArray = initialTags
+      ? JSON.parse(initialTags as string)
+      : [];
 
     const hasChanges =
       rating !== (Number(initialRating) || 0) ||
@@ -102,7 +113,15 @@ export default function EditReview() {
     } else {
       router.back();
     }
-  }, [rating, comment, selectedTags, initialRating, initialComment, initialTags, router]);
+  }, [
+    rating,
+    comment,
+    selectedTags,
+    initialRating,
+    initialComment,
+    initialTags,
+    router,
+  ]);
 
   return (
     <View style={globalStyles.container}>
@@ -212,20 +231,71 @@ export default function EditReview() {
 }
 
 const styles = StyleSheet.create({
-  closeButton: { position: "absolute", top: 50, left: 20, backgroundColor: "rgba(0,0,0,0.5)", width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center", zIndex: 10 },
+  closeButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
   closeButtonText: { color: "white", fontSize: 30, fontWeight: "bold" },
-  AcceptButton: { position: "absolute", top: 50, right: 20, backgroundColor: "rgba(0,0,0,0.5)", width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center", zIndex: 10 },
+  AcceptButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
   AcceptButtonText: { color: "white", fontSize: 20, fontWeight: "bold" },
   editorContainer: { padding: 20, flex: 1 },
-  label: { color: "white", fontSize: 16, fontWeight: "bold", marginBottom: 10, marginTop: 10 },
+  label: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 10,
+    marginTop: 10,
+  },
   starsContainer: { flexDirection: "row", marginBottom: 20 },
   star: { fontSize: 45, marginRight: 10 },
   starSelected: { color: "#FFD700" },
   starUnselected: { color: "#555" },
   tagsScroll: { marginBottom: 20, maxHeight: 40 },
-  tagChip: { backgroundColor: "#3a3c4f", paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: "#555", justifyContent: "center" },
-  tagChipSelected: { backgroundColor: "rgba(228, 48, 87, 0.2)", borderColor: AppColors.primary },
+  tagChip: {
+    backgroundColor: "#3a3c4f",
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#555",
+    justifyContent: "center",
+  },
+  tagChipSelected: {
+    backgroundColor: "rgba(228, 48, 87, 0.2)",
+    borderColor: AppColors.primary,
+  },
   tagText: { color: "#ccc", fontSize: 14 },
   tagTextSelected: { color: AppColors.primary, fontWeight: "bold" },
-  reviewInput: { backgroundColor: "#3a3c4f", borderRadius: 10, padding: 15, height: 200, textAlignVertical: "top", color: "white", fontSize: 16, borderWidth: 1, borderColor: "#555", marginBottom: 40 },
+  reviewInput: {
+    backgroundColor: "#3a3c4f",
+    borderRadius: 10,
+    padding: 15,
+    height: 200,
+    textAlignVertical: "top",
+    color: "white",
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#555",
+    marginBottom: 40,
+  },
 });

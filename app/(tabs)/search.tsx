@@ -95,7 +95,9 @@ export default function FilmList() {
     return combinedData.filter((item) => {
       if (
         !isSearchEmpty &&
-        !item.searchTitle.toLowerCase().includes(searchQuery.trim().toLowerCase())
+        !item.searchTitle
+          .toLowerCase()
+          .includes(searchQuery.trim().toLowerCase())
       )
         return false;
 
@@ -107,7 +109,7 @@ export default function FilmList() {
       const itemGenres = Array.isArray(item.gatunki)
         ? item.gatunki
         : typeof item.gatunki === "string"
-          ? item.gatunki.split(",").map((g) => g.trim())
+          ? item.gatunki.split(",").map((g: string) => g.trim())
           : [];
       if (filterGenre !== "" && !itemGenres.includes(filterGenre)) return false;
 
@@ -309,7 +311,9 @@ export default function FilmList() {
         />
       ) : hasError ? (
         <View style={{ alignItems: "center", marginTop: 20 }}>
-          <Text style={globalStyles.emptyText}>Błąd pobierania danych z serwera.</Text>
+          <Text style={globalStyles.emptyText}>
+            Błąd pobierania danych z serwera.
+          </Text>
           <TouchableOpacity style={styles.retryButton} onPress={refreshMedia}>
             <Text style={styles.retryText}>Spróbuj ponownie</Text>
           </TouchableOpacity>
