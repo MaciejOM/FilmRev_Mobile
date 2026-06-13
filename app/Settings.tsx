@@ -45,7 +45,7 @@ export default function SettingsScreen() {
   const [confirmDeletePassword, setConfirmDeletePassword] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
-  // Bezpieczne wylogowanie z usunięciem danych sesyjnych urządzenia
+  // Wylogowanie konta
   const handleLogout = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -88,7 +88,7 @@ export default function SettingsScreen() {
     );
   };
 
-  // Automatyczne wysyłanie e-maila z linkiem do resetu hasła
+  // Resetowanie hasła (wiadomość e-mail)
   const handleChangePassword = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -131,7 +131,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // Zmiana nazwy użytkownika w bazie i zaktualizowanie nazwy we wszystkich napisanych recenzjach
+  // Zmiana nazwy użytkownika
   const handleSaveUsername = async () => {
     const user = auth.currentUser;
     if (!user) return;
@@ -190,7 +190,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // Całkowite wymazywanie konta
+  // Całkowite usunięcie konta
   const confirmAndDeleteAccount = async () => {
     const user = auth.currentUser;
     if (!user || !user.email) return;
@@ -218,7 +218,7 @@ export default function SettingsScreen() {
     setIsDeletingAccount(true);
 
     try {
-      // Reautentykacja
+      // Re-walidacja danych
       const credential = EmailAuthProvider.credential(
         user.email,
         deletePassword,
@@ -241,7 +241,7 @@ export default function SettingsScreen() {
         }
       });
 
-      // 3. Usuwanie recenzji z Firestore
+      // 3. Usuwanie recenzji
       const deletePromises = querySnapshot.docs.map((reviewDoc) =>
         deleteDoc(reviewDoc.ref),
       );
@@ -253,7 +253,7 @@ export default function SettingsScreen() {
       );
       await Promise.all(updateRatingPromises);
 
-      // 5. Ostateczne skasowanie profilu i konta Auth
+      // 5. Ostateczne skasowanie profilu
       await deleteDoc(doc(db, "users", user.uid));
       await deleteUser(user);
 
@@ -291,7 +291,6 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.content}>
-        {/* Sekcja: Nazwa użytkownika */}
         <TouchableOpacity
           style={styles.settingRow}
           onPress={() => setIsEditingName(!isEditingName)}
@@ -329,7 +328,6 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        {/* Sekcja: Zmiana hasła */}
         <TouchableOpacity
           style={styles.settingRow}
           onPress={handleChangePassword}
@@ -345,7 +343,6 @@ export default function SettingsScreen() {
           />
         </TouchableOpacity>
 
-        {/* Sekcja: Wersja aplikacji */}
         <View style={styles.settingRow}>
           <View style={styles.settingTextContainer}>
             <MaterialIcons name="info-outline" size={24} color="white" />
@@ -354,13 +351,11 @@ export default function SettingsScreen() {
           <Text style={styles.versionText}>1.0.0</Text>
         </View>
 
-        {/* Sekcja: Wylogowywanie */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <MaterialIcons name="logout" size={24} color="white" />
           <Text style={styles.logoutText}>Wyloguj się</Text>
         </TouchableOpacity>
 
-        {/* Sekcja: Usuwanie konta (system weryfikacyjny) */}
         {!showDeletePrompt ? (
           <TouchableOpacity
             style={styles.deleteAccountButton}
@@ -380,7 +375,7 @@ export default function SettingsScreen() {
           <View style={styles.deletePromptContainer}>
             <Text style={styles.deletePromptWarning}>
               Ta operacja jest NIEODWRACALNA. Podaj swoje hasło, aby potwierdzić
-              usunięcie konta i wymazanie danych.
+              usunięcie konta.
             </Text>
             <TextInput
               style={styles.input}

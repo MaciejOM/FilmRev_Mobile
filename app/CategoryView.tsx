@@ -21,14 +21,11 @@ export default function CategoryView() {
   const { numGridColumns, gridItemWidth } = useResponsive();
   const itemWidth = gridItemWidth(20, 15);
 
-  // Pobieramy globalny, zcache'owany stan. Dzięki temu ponowne wejście w kategorię jest błyskawiczne.
   const { film, Tv, isLoading, error, refreshMedia } = useGlobalMedia();
 
-  // useMemo pozwala na filtrowanie i sortowanie tylko przy zmianie danych, co zwiększa wydajność.
   const dataToShow = useMemo(() => {
     if (isLoading || (!film.length && !Tv.length)) return [];
 
-    // Mapowanie danych z filmów i seriali do ujednoliconego formatu wyszukiwania
     const moviesData = film.map((f) => ({
       ...f,
       type: "movie",
@@ -42,25 +39,24 @@ export default function CategoryView() {
       searchDate: t.first_air_date,
     }));
 
-    // Bezpieczne parsowanie dat, zapobiegające awariom przy brakujących danych z API
     const safeDate = (dateStr: string) =>
       dateStr ? new Date(dateStr).getTime() : 0;
 
-    // Sortowanie chronologiczne dla kategorii "Najnowsze filmy"
+    // Sortowanie dla kategorii "Najnowsze filmy"
     if (category === "latest_movies") {
       return [...moviesData].sort(
         (a, b) => safeDate(b.searchDate) - safeDate(a.searchDate),
       );
     }
 
-    // Sortowanie chronologiczne dla kategorii "Najnowsze seriale"
+    // Sortowanie dla kategorii "Najnowsze seriale"
     if (category === "latest_tv") {
       return [...tvData].sort(
         (a, b) => safeDate(b.searchDate) - safeDate(a.searchDate),
       );
     }
 
-    // Łączenie i filtrowanie zbiorów dla kategorii "Najlepiej oceniane" (Wymagana jest min. 1 recenzja)
+    // Łączenie i filtrowanie zbiorów dla kategorii "Najlepiej oceniane" (Jeśli tytuł ma min. 1 recenzje)
     if (category === "top_rated") {
       return [...moviesData, ...tvData]
         .filter((item) => (item.vote_average || 0) > 0)

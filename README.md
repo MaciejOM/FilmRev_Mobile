@@ -2,10 +2,7 @@
 
 Mobilna aplikacja do recenzowania filmów i seriali, zbudowana w **React Native + Expo**. Pozwala użytkownikom przeglądać popularne produkcje z bazy TMDB, wystawiać recenzje, zarządzać listami oglądania oraz tworzyć własne listy tytułów.
 
-<img src="images/Screenshot_20260613-130036_Expo Go.png" width=240px>
-<img src="images/Screenshot_20260613-130100_Expo Go.png" width=240px>
-<img src="images/Screenshot_20260613-130124_Expo Go.png" width=240px>
-<img src="images/Screenshot_20260613-130147_Expo Go.png" width=240px>
+<img src="images/Screenshot_20260613-130036_Expo Go.png" width=240px> <img src="images/Screenshot_20260613-130100_Expo Go.png" width=240px><img src="images/Screenshot_20260613-130124_Expo Go.png" width=240px><img src="images/Screenshot_20260613-130147_Expo Go.png" width=240px>
 
 ---
 

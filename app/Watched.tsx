@@ -17,6 +17,7 @@ import {
 import { auth } from "@/hooks/firebaseConfig";
 import { getUserList } from "@/hooks/firebaseDatabase";
 
+// Lista "Obejrzane". Domyślnie stworzona dla każdego użytkownika.
 export default function Watched() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const { numGridColumns, gridItemWidth } = useResponsive();
@@ -65,7 +66,7 @@ export default function Watched() {
 
   const renderGridItem = useCallback(
     ({ item }: { item: any }) => {
-      if (!item) return null; // Zabezpieczenie przed pustymi/uszkodzonymi elementami bazy
+      if (!item) return null;
 
       return (
         <TouchableOpacity

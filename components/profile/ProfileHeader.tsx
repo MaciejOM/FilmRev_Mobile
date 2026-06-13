@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+// Domyślny opis
 const DEFAULT_BIO = "Brak opisu";
 
 interface ProfileHeaderProps {
@@ -24,6 +25,9 @@ interface ProfileHeaderProps {
   isReadOnly?: boolean;
 }
 
+// Nagłówek profilu
+// Wyświetlane informacje: zdjęcie profilowe, opis, liczba recenzji, data dołączenia.
+// Limit znaków w opisie: 128 (przy mnie niż 30 pozostałych znakach wyświetla się limit)
 const ProfileHeader = ({
   user,
   reviewCount,

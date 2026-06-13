@@ -75,8 +75,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Szybkie wczytanie danych z pamięci podręcznej (AsyncStorage). Pozwala pokazać
-  // ekran główny natychmiast, zanim dojdzie odpowiedź z sieci (stale-while-revalidate).
   const hydrateFromCache = useCallback(async () => {
     try {
       const [offlineMovies, offlineTv] = await Promise.all([
@@ -92,8 +90,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const loadData = useCallback(async () => {
-    // 1. Najpierw cache — jeśli mamy dane, ekran pojawia się od razu, a sieć
-    //    odświeży je w tle (bez ponownego pokazywania spinnera).
     const hadCache = await hydrateFromCache();
     setIsLoading(!hadCache);
 
@@ -127,7 +123,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
         const movieData = await movieRes.json();
         const tvData = await tvRes.json();
 
-        // Obie synchronizacje równolegle zamiast jedna po drugiej.
         await Promise.all([
           movieData.results
             ? syncMediaToFirestore(movieData.results, "movie", MOVIE_GENRES)
@@ -138,7 +133,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
         ]);
       }
 
-      // Pobieranie zunifikowanych danych z Firestore
       const [fbMovies, fbTv] = await Promise.all([
         getMediaFromFirestore("movie"),
         getMediaFromFirestore("tv"),
@@ -168,7 +162,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
         type: "tv",
       }));
 
-      // Najpierw pokazujemy świeże dane, a zapis do cache robimy w tle (nie blokuje UI).
       setFilm(mappedMovies);
       setTv(mappedTv);
       setError(null);
@@ -179,7 +172,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
       ]).catch(() => {});
     } catch (err) {
       console.error("Błąd ładowania danych globalnych:", err);
-      // Mając dane z cache nie psujemy ekranu pełnoekranowym błędem — pokazujemy stare dane.
       if (!hadCache) {
         setError("Wystąpił problem z pobieraniem danych z serwera.");
       }

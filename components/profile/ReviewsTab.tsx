@@ -22,6 +22,10 @@ interface ReviewsTabProps {
   onDeleteReview?: (id: string) => void;
 }
 
+// Karta recenzji.
+// Jeśli użytkownik, który jest zalogowany na urządzeniu, jest twórcą recenzji (na podstawie ID recenzji i Tokenu autoryzacji),
+// Przyciski edycji/usuwania recenzji wyświetlą się przy niej.
+// Zapobiega to możliwości edycji/usuwania przez osoby trzecie.
 const ReviewCard = memo(
   ({
     rev,

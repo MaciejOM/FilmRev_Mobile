@@ -27,6 +27,8 @@ export default function AccountScreen() {
       return;
     }
 
+    // "Wyłącza" przycisk logowania w momencie wciśnięcia, aby zapobiec niepotrzebnym wciśnięciom
+    // w trakcie walidacji danych.
     setIsSubmitting(true);
 
     try {
@@ -50,6 +52,7 @@ export default function AccountScreen() {
         Alert.alert("Błąd", "Nieprawidłowy e-mail lub hasło!");
       }
     } finally {
+      // Kiedy walidacja się skończy, przycisk logowania jest ponownie dostępny
       setIsSubmitting(false);
     }
   };

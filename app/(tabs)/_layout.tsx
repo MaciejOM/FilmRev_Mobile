@@ -7,6 +7,12 @@ import React from "react";
 import { ActivityIndicator, View } from "react-native";
 
 export default function TabLayout() {
+  
+  // Walidacja: Niezalogowanemu użytkownikowi wyświetla się w nawigacji przycisk "Zaloguj się"
+  // Kiedy użytkownik się zaloguje, przycisk logowania zostaje ukryty, a na jego miejsce wchodzi przycisk "Moje konto"
+  // Również po zalogowaniu użytkownik automatycznie jest przenoszony na ekran profilu.
+  // Po wylogowaniu następuje ten sam proces na odwrót: użytkownik zostaje przeniesiony na ekran logowania, a zakładka logowania zajmuje miejsce zakładki profilu.
+  // Zapewnia gładkie przejście między zakładkami podczas procesu logowania.
   const { isLogged, isLoading } = useAuth();
 
   if (isLoading) {
@@ -56,6 +62,7 @@ export default function TabLayout() {
         }}
       />
 
+      
       <Tabs.Screen
         name="account"
         options={{

@@ -55,6 +55,7 @@ export default function ProfileScreen() {
   const [editBioText, setEditBioText] = useState("");
   const [customListsData, setCustomListsData] = useState<any[]>([]);
 
+  // Załadowanie nowych danych użytkownika
   const fetchFreshData = async (userAuth: any) => {
     try {
       const netState = await NetInfo.fetch();
@@ -130,6 +131,7 @@ export default function ProfileScreen() {
     }
   };
 
+  // Załadowanie danych użytkowika 
   const loadUserData = useCallback(async () => {
     try {
       const currentUser = auth.currentUser;
@@ -178,9 +180,8 @@ export default function ProfileScreen() {
     useCallback(() => {
       if (!hasFetchedOnce.current) {
         hasFetchedOnce.current = true;
-        loadUserData(); // full load only on first mount
+        loadUserData();
       }
-      // Subsequent focuses: delta events handle everything, no fetch needed
     }, [loadUserData]),
   );
 
@@ -197,6 +198,7 @@ export default function ProfileScreen() {
     });
   }, []);
 
+  // Odświeżanie niestandarowych list
   const refreshCustomLists = useCallback(async () => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
@@ -219,6 +221,8 @@ export default function ProfileScreen() {
     }
   }, [updateCache]);
 
+  // Kiedy użytkownik polubi produkcje, doda ją do listy, lub doda recenzje,
+  // DeviceEventEmitter wyłapie tą informacje i zaktualizuje profil odpowiednimi informacjami.
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener(
       "refreshProfile",
@@ -227,6 +231,7 @@ export default function ProfileScreen() {
       },
     );
 
+    // Dodanie do ulubionych.
     const favSub = DeviceEventEmitter.addListener(
       "favouriteToggled",
       (data) => {
@@ -244,6 +249,7 @@ export default function ProfileScreen() {
       },
     );
 
+    // Dodanie do listy "Do obejrzenia".
     const watchlistSub = DeviceEventEmitter.addListener(
       "watchlistToggled",
       (data) => {
@@ -258,6 +264,7 @@ export default function ProfileScreen() {
       },
     );
 
+    // Dodanie do listy "Obejrzane".
     const watchedSub = DeviceEventEmitter.addListener(
       "watchedToggled",
       (data) => {
@@ -272,6 +279,7 @@ export default function ProfileScreen() {
       },
     );
 
+    // Dodanie recenzji
     const newRevSub = DeviceEventEmitter.addListener(
       "newReviewAdded",
       (newReview) => {
@@ -284,6 +292,7 @@ export default function ProfileScreen() {
       },
     );
 
+    // Edycja recenzji
     const editRevSub = DeviceEventEmitter.addListener(
       "reviewEdited",
       (data) => {
@@ -316,6 +325,7 @@ export default function ProfileScreen() {
       },
     );
 
+    // Usunięcie recenzji
     const delRevSub = DeviceEventEmitter.addListener(
       "reviewDeleted",
       (data) => {
@@ -330,7 +340,7 @@ export default function ProfileScreen() {
       },
     );
 
-    // Fix: likes disappear when switching tabs — Profile must track like changes in reviewsData
+    // Polubienie recenzji
     const likeRevSub = DeviceEventEmitter.addListener(
       "reviewLikeToggled",
       (data) => {
@@ -347,6 +357,7 @@ export default function ProfileScreen() {
       },
     );
 
+    // Zmiana nazwy użytkownika
     const usernameSub = DeviceEventEmitter.addListener(
       "usernameChanged",
       (data) => {
@@ -359,6 +370,7 @@ export default function ProfileScreen() {
       },
     );
 
+    // Usunięcie listy
     const listDeletedSub = DeviceEventEmitter.addListener(
       "customListDeleted",
       (data) => {
@@ -373,6 +385,7 @@ export default function ProfileScreen() {
       },
     );
 
+    // Zmiana nazwy listy
     const listRenamedSub = DeviceEventEmitter.addListener(
       "customListRenamed",
       (data) => {
@@ -404,6 +417,7 @@ export default function ProfileScreen() {
     };
   }, [updateCache]);
 
+  // Zmiana zdjęcia profilowego.
   const pickImage = async () => {
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
@@ -414,6 +428,7 @@ export default function ProfileScreen() {
       return;
     }
 
+    // Pozwolenie na dostęp do galerii.
     const { status, canAskAgain } =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -469,6 +484,7 @@ export default function ProfileScreen() {
     }
   };
 
+  // Zapisywanie zmian w opisie profilu
   const handleSaveBio = async () => {
     if (!auth.currentUser) return;
 
@@ -492,6 +508,7 @@ export default function ProfileScreen() {
     }
   };
 
+  // Jeśli niezalogowany użytkownik wyświetli ekran, pojawi się specjalny komunikat.
   if (!user && !auth.currentUser) {
     return (
       <View style={globalStyles.centerContainer}>

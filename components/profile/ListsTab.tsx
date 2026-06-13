@@ -41,6 +41,7 @@ const ListsTab = ({
   useEffect(() => {
     let isMounted = true;
 
+    // Pobieranie podglądów list
     const fetchPreviews = async () => {
       if (!customLists || customLists.length === 0) {
         if (isMounted) setEnrichedLists([]);
@@ -103,6 +104,7 @@ const ListsTab = ({
     };
   }, [customLists]);
 
+  // Tworzenie nowej listy
   const handleCreateList = async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
@@ -152,6 +154,7 @@ const ListsTab = ({
     }
   };
 
+  // Renderowanie zgrupowanych plakatów w miniaturce listy.
   const renderStackedPosters = (previewItems: any[] = []) => {
     const itemsToRender = (previewItems || []).slice(0, 3);
     if (itemsToRender.length === 0) {

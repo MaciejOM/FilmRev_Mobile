@@ -20,7 +20,7 @@ export default function FilmList() {
   const { numGridColumns, gridItemWidth } = useResponsive();
   const itemWidth = gridItemWidth(20, 15);
 
-  // Pobieranie wszystkiego z jednego miejsca (wraz z funkcją naprawczą z pkt 12)
+  // Pobieranie filmów i seriali
   const { film, Tv, isLoading, error, refreshMedia } = useGlobalMedia();
 
   const [showFilters, setShowFilters] = useState(false);
@@ -38,7 +38,7 @@ export default function FilmList() {
     filterYear !== "" ||
     filterRating > 0;
 
-  // OPTYMALIZACJA: Połączenie list wykonuje się tylko po pobraniu nowych danych, a nie przy każdym wpisaniu literki
+  // Łączenie list filmów i seriali w jedno.
   const combinedData = useMemo(() => {
     return [
       ...film.map((item) => ({
@@ -60,7 +60,7 @@ export default function FilmList() {
     ];
   }, [film, Tv]);
 
-  // OPTYMALIZACJA: Wyciąganie lat produkcji z pamięci podręcznej
+// Wyświetlanie dostępnych roków produkcji w filtrach
   const availableYears = useMemo(() => {
     return Array.from(
       new Set(
@@ -74,7 +74,7 @@ export default function FilmList() {
       .reverse();
   }, [combinedData]);
 
-  // OPTYMALIZACJA: Dynamiczne wyciąganie unikalnych gatunków
+  // Wyświetlanie dostępnych gatunków w filtrach
   const availableGenres = useMemo(() => {
     return Array.from(
       new Set(
@@ -88,7 +88,7 @@ export default function FilmList() {
     ).sort();
   }, [combinedData]);
 
-  // Główny silnik filtrujący wewnątrz useMemo (zabezpieczenie przed lagami podczas pisania na klawiaturze)
+  // Wyświetlanie wyników wyszukiwania
   const dataToShow = useMemo(() => {
     if (isSearchEmpty && !hasActiveFilters) return [];
 
@@ -133,7 +133,7 @@ export default function FilmList() {
     hasActiveFilters,
   ]);
 
-  // Resetowanie wszystkich nałożonych filtrów jednym kliknięciem
+  // Czyszczenie filtrów
   const clearFilters = () => {
     setFilterType("all");
     setFilterGenre("");

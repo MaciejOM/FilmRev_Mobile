@@ -43,6 +43,7 @@ export default function CustomList() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [newListName, setNewListName] = useState("");
 
+  // Pobranie informacji o niestandardowej liście
   const fetchList = useCallback(async () => {
     if (!listId) return;
     try {
@@ -75,6 +76,7 @@ export default function CustomList() {
     }, [fetchList]),
   );
 
+  // Zmiana nazwy listy
   const handleSaveName = async () => {
     if (newListName.trim() === "" || !listId) return;
     try {
@@ -99,6 +101,7 @@ export default function CustomList() {
     }
   };
 
+  // Usuwanie listy
   const handleDeleteList = () => {
     Alert.alert(
       "Usuwanie listy",
@@ -131,7 +134,6 @@ export default function CustomList() {
     );
   };
 
-  // Optymalizacja z useMemo chroniąca przed ciągłym przeliczaniem zakładek
   const dataToShow = useMemo(() => {
     return activeTab === "movie"
       ? listDetails?.movies || []
@@ -140,7 +142,6 @@ export default function CustomList() {
 
   const renderGridItem = useCallback(
     ({ item }: { item: any }) => {
-      // KLUCZOWY FIX: Pomijamy niezdefiniowane i puste wpisy ("uszkodzone" pozycje w bazie)
       if (!item) return null;
 
       const posterPath = item.plakat || item.poster_path;
@@ -206,6 +207,7 @@ export default function CustomList() {
     );
   }
 
+  // Jeśli lista nie istnieje, wyświetla błąd.
   if (!listDetails) {
     return (
       <View style={globalStyles.centerContainer}>

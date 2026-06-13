@@ -50,12 +50,6 @@ export const syncMediaToFirestore = async (
       const documentId = `${type}_${item.id}`;
       const movieRef = doc(db, "movies", documentId);
 
-      // OPTYMALIZACJA: nie zapisujemy tutaj vote_average. Dzięki temu pomijamy
-      // kosztowny getDoc per pozycję (był tylko po to, by zachować istniejącą ocenę).
-      // merge:true nie rusza pól pominiętych w zapisie, więc ocena istniejących
-      // dokumentów zostaje nietknięta, a nowe wpisy dostają 0 przy odczycie
-      // (getMediaFromFirestore -> vote_average || 0). Ocenę aktualizuje wyłącznie
-      // updateMovieAverageRating przy zmianach recenzji.
       await setDoc(
         movieRef,
         {

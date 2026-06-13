@@ -17,6 +17,7 @@ import {
 import { auth } from "@/hooks/firebaseConfig";
 import { getUserList } from "@/hooks/firebaseDatabase";
 
+// Lista "Do obejrzenia". Domyślnie stworzona dla każdego użytkownika.
 export default function Watchlist() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const { numGridColumns, gridItemWidth } = useResponsive();

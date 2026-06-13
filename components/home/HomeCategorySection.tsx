@@ -16,6 +16,7 @@ interface HomeCategorySectionProps {
   data: any[];
 }
 
+// Sekcja kategorii
 const HomeCategorySection = ({
   title,
   categoryParam,
@@ -49,6 +50,8 @@ const HomeCategorySection = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContent}
         renderItem={({ item }) => (
+          // Przycisk przechowuje wszystkie informacje o produkcji (Tytuł, premiere, gatunki, tło, opis)
+          // Pozwala to na szybkie załadowania informacji o produkcji, nawet jeśli użytkownik straci połączenie.
           <TouchableOpacity
             style={globalStyles.filmBanner}
             onPress={() =>
