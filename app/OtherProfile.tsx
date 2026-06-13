@@ -30,6 +30,8 @@ import ProfileHeader from "@/components/profile/ProfileHeader";
 import ProfileTabs, { TabType } from "@/components/profile/ProfileTabs";
 import ReviewsTab from "@/components/profile/ReviewsTab";
 
+// Profil innego użytkownika
+// Tu
 export default function OtherProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
 

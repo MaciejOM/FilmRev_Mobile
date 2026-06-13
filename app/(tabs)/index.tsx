@@ -15,6 +15,7 @@ import HomeCategorySection from "@/components/home/HomeCategorySection";
 export default function Index() {
   const { film, Tv, isLoading, error, refreshMedia } = useGlobalMedia();
 
+  // Kategorie
   const sections = useMemo(() => {
     if (!film || !Tv) return [];
 
@@ -34,14 +35,17 @@ export default function Index() {
     const safeDate = (dateStr: string) =>
       dateStr ? new Date(dateStr).getTime() : 0;
 
+    // Filtr "Najnowsze filmy"
     const latestMovies = [...moviesData].sort(
       (a, b) => safeDate(b.searchDate) - safeDate(a.searchDate),
     );
 
+    // Filtr "Najnowsze seriale"
     const latestTv = [...tvData].sort(
       (a, b) => safeDate(b.searchDate) - safeDate(a.searchDate),
     );
 
+    // Filtr "Najlepiej oceniane"
     const topRated = [...moviesData, ...tvData]
       .filter((item) => (item.vote_average || 0) > 0)
       .sort((a, b) => b.vote_average - a.vote_average);
@@ -82,7 +86,7 @@ export default function Index() {
     );
   }
 
-  // Obsługa błędów sieciowych z wymaganą opcją RETRY (Punkt 12 z wytycznych)
+  // Jeśli ładowanie danych się nie powiedzie, użytkownik ma możliwość ponownego załadowania.
   if (error && film.length === 0 && Tv.length === 0) {
     return (
       <View style={globalStyles.centerContainer}>

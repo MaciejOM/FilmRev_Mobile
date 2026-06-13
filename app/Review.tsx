@@ -25,7 +25,6 @@ const AVAILABLE_TAGS = ["Bez spoilerów", "Pierwsze wrażenia"];
 export default function ReviewEditor() {
   const router = useRouter();
 
-  // Pobieramy dodatkowe parametry przesłane z FilmDetail
   const { id, type, title, release_date, backdrop, gatunki } =
     useLocalSearchParams();
 
@@ -61,6 +60,7 @@ export default function ReviewEditor() {
     );
   }, []);
 
+  // Zatwierdzenie recenzji (Walidacja danych i połączenia)
   const handleSubmit = async () => {
     const userAuth = auth.currentUser;
     if (!userAuth) return Alert.alert("Błąd", "Musisz być zalogowany.");
@@ -93,7 +93,6 @@ export default function ReviewEditor() {
       );
 
       if (result && result.success) {
-        // OPTYMALIZACJA: Pakujemy tu od razu pełne dane filmu!
         const optimisticReview = {
           id: result.id,
           movieId: documentId,
@@ -116,7 +115,6 @@ export default function ReviewEditor() {
         };
 
         DeviceEventEmitter.emit("newReviewAdded", optimisticReview);
-        // Całkowicie wywalamy "refreshProfile" – opieramy się na fragmencie
         router.back();
       } else {
         throw new Error(result?.error || "Nieznany błąd");
@@ -132,6 +130,8 @@ export default function ReviewEditor() {
     }
   };
 
+  // Jeśli użytkownik wprowadzi dane do recenzji i spróbuje wyjść bez zatwierdzania,
+  // Aplikacja wyświetli ostrzeżenie.
   const handleBackPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 

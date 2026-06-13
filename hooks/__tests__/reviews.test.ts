@@ -1,7 +1,7 @@
 import {
-    addFirebaseReview,
-    deleteFirebaseReview,
-    updateFirebaseReview,
+  addFirebaseReview,
+  deleteFirebaseReview,
+  updateFirebaseReview,
 } from "../firebaseDatabase";
 
 jest.mock("@react-native-community/netinfo", () => ({

@@ -14,11 +14,9 @@ export default function Skeleton({
   borderRadius = 8,
   style,
 }: SkeletonProps) {
-  // Animacja przezroczystości (od 30% do 70%)
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    // Nieskończona pętla animacji pulsowania
     Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {

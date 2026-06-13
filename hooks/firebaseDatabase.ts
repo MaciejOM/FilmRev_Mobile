@@ -1,7 +1,6 @@
 // Importy
 import { db } from "@/hooks/firebaseConfig";
 import NetInfo from "@react-native-community/netinfo";
-import { DeviceEventEmitter } from "react-native";
 import {
   addDoc,
   arrayRemove,
@@ -17,10 +16,9 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { DeviceEventEmitter } from "react-native";
 
-// --- HELPERY ---
-
-// Funkcja sprawdzająca połączenie z siecią przed wykonaniem operacji
+// Sprawdzanie połącznie z siecią
 const ensureNetworkConnection = async () => {
   const state = await NetInfo.fetch();
   if (!state.isConnected) {
@@ -30,7 +28,7 @@ const ensureNetworkConnection = async () => {
   }
 };
 
-// --- GŁÓWNE OPERACJE NA BAZIE (FILMY I SERIALE) ---
+// Baza danych
 
 // Synchronizacja nowej listy filmów i seriali z zewnętrznego API do bazy Firestore
 export const syncMediaToFirestore = async (
@@ -52,15 +50,6 @@ export const syncMediaToFirestore = async (
       const documentId = `${type}_${item.id}`;
       const movieRef = doc(db, "movies", documentId);
 
-      const docSnap = await getDoc(movieRef);
-      const existingData = docSnap.exists() ? docSnap.data() : null;
-
-      // Zapobiega nadpisaniu lokalnej oceny w bazie przy synchronizacji z TMDB
-      const currentVoteAverage =
-        existingData && existingData.vote_average !== undefined
-          ? existingData.vote_average
-          : 0;
-
       await setDoc(
         movieRef,
         {
@@ -72,7 +61,6 @@ export const syncMediaToFirestore = async (
           plakat: item.poster_path,
           backdrop: item.backdrop_path,
           gatunki: gatunkiNazwy,
-          vote_average: currentVoteAverage,
         },
         { merge: true },
       );
@@ -85,7 +73,7 @@ export const syncMediaToFirestore = async (
   }
 };
 
-// Pobieranie wszystkich zapisanych produkcji danego typu
+// Pobieranie wszystkich zapisanych produkcji danego typu z Firestore
 export const getMediaFromFirestore = async (type: "movie" | "tv") => {
   try {
     await ensureNetworkConnection();
@@ -101,11 +89,11 @@ export const getMediaFromFirestore = async (type: "movie" | "tv") => {
     return media;
   } catch (error) {
     console.error("Błąd pobierania danych z Firestore:", error);
-    throw error; // Rzucamy dalej, aby UI mogło wyświetlić opcję Retry
+    throw error;
   }
 };
 
-// --- SYSTEM RECENZJI ---
+// Recenzje
 
 // Dodawanie recenzji
 export const addFirebaseReview = async (
@@ -131,7 +119,6 @@ export const addFirebaseReview = async (
       createdAt: serverTimestamp(),
     });
 
-    // Wywołanie przeliczenia średniej oceny przy dodaniu recenzji
     await updateMovieAverageRating(movieId);
 
     return { success: true, id: docRef.id };
@@ -178,10 +165,8 @@ export const deleteFirebaseReview = async (reviewId: string) => {
 
       await deleteDoc(reviewRef);
 
-      // Wywołanie przeliczenia średniej oceny przy usunięciu recenzji
       await updateMovieAverageRating(movieId);
     } else {
-      // Przypadek, w którym recenzja nie istnieje
       await deleteDoc(reviewRef);
     }
 
@@ -221,12 +206,11 @@ export const updateFirebaseReview = async (
   }
 };
 
-// Aktualizowanie średniej ocen dla danej produkcji (funkcja pomocnicza)
+// Aktualizowanie średniej ocen dla danej produkcji
 export const updateMovieAverageRating = async (movieId: string) => {
   if (!movieId) return;
 
   try {
-    // Tutaj nie dajemy ensureNetworkConnection, bo funkcja wywoływana jest wewnątrz innych, które już to sprawdzają
     const q = query(collection(db, "reviews"), where("movieId", "==", movieId));
     const querySnapshot = await getDocs(q);
 
@@ -249,10 +233,6 @@ export const updateMovieAverageRating = async (movieId: string) => {
       vote_average: newAverage,
     });
 
-    // Powiadamiamy MediaContext, by od razu zaktualizował średnią ocenę trzymaną
-    // w pamięci. Bez tego ekran główny ("Najlepiej oceniane") i wyszukiwarka
-    // pokazywałyby starą ocenę aż do następnego uruchomienia aplikacji,
-    // bo dane TMDB pobierane są tylko raz na sesję.
     DeviceEventEmitter.emit("movieRatingUpdated", { movieId, newAverage });
 
     console.log(
@@ -293,9 +273,9 @@ export const toggleFirebaseReviewLike = async (
   }
 };
 
-// --- LISTY UŻYTKOWNIKA ---
+// Użytkownicy
 
-// Przełączanie elementu na liście (Watchlist, Favourites, Watched)
+// Przełączanie zakładek profilu
 export const toggleUserList = async (
   userId: string,
   listName: "watchlist" | "favourites" | "watched",
@@ -327,7 +307,7 @@ export const toggleUserList = async (
   }
 };
 
-// Pobieranie danych z podstawowych list użytkownika
+// Pobieranie danych użytkownika
 export const getUserList = async (
   userId: string,
   listName: "watchlist" | "favourites" | "watched",
@@ -365,7 +345,7 @@ export const getUserList = async (
   }
 };
 
-// Pobieranie wszystkich recenzji danego użytkownika
+// Pobieranie recenzji użytkownika
 export const getUserReviews = async (userId: string) => {
   try {
     await ensureNetworkConnection();
@@ -373,7 +353,6 @@ export const getUserReviews = async (userId: string) => {
     const q = query(collection(db, "reviews"), where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
 
-    // Optymalizacja z Promise.all zamiast pętli for...of
     const reviewsPromises = querySnapshot.docs.map(async (document) => {
       const data = document.data();
       const movieRef = doc(db, "movies", data.movieId);
@@ -398,9 +377,9 @@ export const getUserReviews = async (userId: string) => {
   }
 };
 
-// --- OBSŁUGA NIESTANDARDOWYCH LIST ---
+// Niestandardowe listy
 
-// 1. Pobieranie konkretnej listy po jej unikalnym ID wraz z danymi produkcji
+// Pobieranie list
 export const getCustomListDetails = async (listId: string) => {
   try {
     await ensureNetworkConnection();
@@ -417,7 +396,6 @@ export const getCustomListDetails = async (listId: string) => {
       return { ...listData, id: listSnap.id, movies: [], tv: [] };
     }
 
-    // Optymalizacja: Przejście z powolnego for...of na równoległe zapytania Promise.all
     const mediaPromises = listData.items.map(async (mediaId: string) => {
       const isMovie = mediaId.startsWith("movie_");
       const collectionName = isMovie ? "movie" : "tv";
@@ -433,7 +411,6 @@ export const getCustomListDetails = async (listId: string) => {
             data: { id: mediaSnap.id, ...mediaSnap.data() },
           };
         } else {
-          // Fallback do TMDB jeśli brakuje w Firestore
           const tmdbType = isMovie ? "movie" : "tv";
           const res = await fetch(
             `https://api.themoviedb.org/3/${tmdbType}/${cleanId}?api_key=${tmdbKey}&language=pl-PL`,
@@ -459,13 +436,11 @@ export const getCustomListDetails = async (listId: string) => {
       } catch (err) {
         console.error(`Błąd parsowania elementu ${mediaId}:`, err);
       }
-      return null; // Zwracamy null jeśli coś poszło nie tak
+      return null;
     });
 
-    // Czekamy na rozwiązanie wszystkich zapytań jednocześnie
     const resolvedMedia = await Promise.all(mediaPromises);
 
-    // Sortowanie wyników do odpowiednich tablic
     const moviesData = resolvedMedia
       .filter((item) => item?.type === "movie")
       .map((item) => item?.data);
@@ -485,7 +460,7 @@ export const getCustomListDetails = async (listId: string) => {
   }
 };
 
-// 2. Usuwanie niestandardowej listy
+//  Usuwanie listy
 export const deleteCustomList = async (listId: string) => {
   try {
     await ensureNetworkConnection();
@@ -497,7 +472,7 @@ export const deleteCustomList = async (listId: string) => {
   }
 };
 
-// 3. Zmiana nazwy listy
+// Zmiana nazwy listy
 export const renameCustomList = async (listId: string, newName: string) => {
   try {
     await ensureNetworkConnection();

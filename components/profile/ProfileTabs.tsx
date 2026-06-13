@@ -2,7 +2,6 @@ import { AppColors } from "@/constants/theme";
 import React, { memo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-// Usunięto nieużywane stany zakładek dla czystości kodu
 export type TabType = "favourites" | "reviews" | "lists";
 
 interface ProfileTabsProps {

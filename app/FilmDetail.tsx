@@ -64,7 +64,10 @@ export default function FilmDetail() {
 
   const [dbMovieData, setDbMovieData] = useState<any>(null);
 
+  // Informacje o dodaniu/edycji/usunięciu/polubieniu recenzji oraz zmianie danych konta
+  // zostaną natychmiastowo zmienione w momencie dokonania zmiany.
   useEffect(() => {
+    // Dodanie recenzji
     const addSubscription = DeviceEventEmitter.addListener(
       "newReviewAdded",
       (newReview) => {
@@ -72,6 +75,7 @@ export default function FilmDetail() {
       },
     );
 
+    // Edycja recenzji
     const editSubscription = DeviceEventEmitter.addListener(
       "reviewEdited",
       (updatedData) => {
@@ -91,6 +95,7 @@ export default function FilmDetail() {
       },
     );
 
+    // Polubienie recenzji
     const likeSubscription = DeviceEventEmitter.addListener(
       "reviewLikeToggled",
       (data) => {
@@ -102,6 +107,7 @@ export default function FilmDetail() {
       },
     );
 
+    // Usunięcie recenzji
     const deleteSubscription = DeviceEventEmitter.addListener(
       "reviewDeleted",
       (data) => {
@@ -109,6 +115,7 @@ export default function FilmDetail() {
       },
     );
 
+    // Zmiana zdjęcia profilowego
     const avatarSubscription = DeviceEventEmitter.addListener(
       "avatarChanged",
       (data) => {
@@ -201,7 +208,7 @@ export default function FilmDetail() {
     loadData();
   }, [tmdbId, movieType, loadData]);
 
-  // OPTYMALIZACJA: Przekazujemy Profilowi komplet danych o tytule, by wygenerował wizytówkę
+  // Dodawanie recenzji
   const handleAddReviewPress = () => {
     if (!currentUser) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -218,6 +225,7 @@ export default function FilmDetail() {
     });
   };
 
+  // Usuwanie recenzji
   const handleDeleteReview = (reviewId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert("Usuń recenzję", "Czy na pewno chcesz usunąć swoją recenzję?", [
@@ -249,6 +257,7 @@ export default function FilmDetail() {
     ]);
   };
 
+  // Dodanie do niestandardowej listy
   const toggleCustomListMembership = async (
     listId: string,
     currentItems: string[],
@@ -287,6 +296,7 @@ export default function FilmDetail() {
     }
   };
 
+  // Dodanie do ulubionych
   const handleToggleFavourite = async () => {
     if (!currentUser) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -334,6 +344,7 @@ export default function FilmDetail() {
     }
   };
 
+  // Polubienie recenzji
   const handleLikePress = async (
     reviewId: string,
     currentLikes: string[] = [],
@@ -367,12 +378,15 @@ export default function FilmDetail() {
     }
   };
 
+  // Liczba recenzji
   const totalReviews = reviews.length;
+  // Średnia ocena
   const averageRating =
     totalReviews > 0
       ? (reviews.reduce((sum, r) => sum + r.ocena, 0) / totalReviews).toFixed(1)
       : 0;
 
+  // Dane tymczasowe (Wyświetlane podczas ładowania danych)
   const resolvedTitle = (title as string) || "Brak tytułu";
   const resolvedBackdrop = (backdrop as string) || "";
   const resolvedReleaseDate = (release_date as string) || "---";

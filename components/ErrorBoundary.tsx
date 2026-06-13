@@ -11,9 +11,8 @@ interface State {
   error: Error | null;
 }
 
-/**
- * Wyłapuje błędy renderowania i wyświetla użytkownikowi komunikat z możliwością ponownej próby załadowania.
- */
+//Wyłapuje błędy renderowania i wyświetla użytkownikowi komunikat z możliwością ponownej próby załadowania.
+
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);

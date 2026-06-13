@@ -7,10 +7,14 @@ import React from "react";
 import { ActivityIndicator, View } from "react-native";
 
 export default function TabLayout() {
-  // Wyciągamy stan bezpośrednio z centralnego monitoringu
+  
+  // Walidacja: Niezalogowanemu użytkownikowi wyświetla się w nawigacji przycisk "Zaloguj się"
+  // Kiedy użytkownik się zaloguje, przycisk logowania zostaje ukryty, a na jego miejsce wchodzi przycisk "Moje konto"
+  // Również po zalogowaniu użytkownik automatycznie jest przenoszony na ekran profilu.
+  // Po wylogowaniu następuje ten sam proces na odwrót: użytkownik zostaje przeniesiony na ekran logowania, a zakładka logowania zajmuje miejsce zakładki profilu.
+  // Zapewnia gładkie przejście między zakładkami podczas procesu logowania.
   const { isLogged, isLoading } = useAuth();
 
-  // Zabezpieczenie: dopóki aplikacja sprawdza token w SecureStore, pokazujemy loader
   if (isLoading) {
     return (
       <View
@@ -58,14 +62,14 @@ export default function TabLayout() {
         }}
       />
 
+      
       <Tabs.Screen
         name="account"
         options={{
           title: "",
-          // Dynamiczne chowanie zakładki - rekomendowane przez Expo Router
           href: isLogged ? null : "/account",
           tabBarIcon: ({ color }) => (
-            <MaterialIcons size={30} name="account-circle" color={color} />
+            <MaterialIcons size={30} name="person" color={color} />
           ),
         }}
       />
@@ -74,7 +78,6 @@ export default function TabLayout() {
         name="Profile"
         options={{
           title: "",
-          // Dynamiczne chowanie zakładki
           href: isLogged ? "/Profile" : null,
           tabBarIcon: ({ color }) => (
             <MaterialIcons size={30} name="person" color={color} />

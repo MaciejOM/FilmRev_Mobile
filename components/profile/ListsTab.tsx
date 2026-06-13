@@ -7,13 +7,13 @@ import { router } from "expo-router";
 import { addDoc, collection, doc, getDoc } from "firebase/firestore";
 import React, { memo, useEffect, useState } from "react";
 import {
-    Alert,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface ListsTabProps {
@@ -41,6 +41,7 @@ const ListsTab = ({
   useEffect(() => {
     let isMounted = true;
 
+    // Pobieranie podglądów list
     const fetchPreviews = async () => {
       if (!customLists || customLists.length === 0) {
         if (isMounted) setEnrichedLists([]);
@@ -54,7 +55,6 @@ const ListsTab = ({
           const itemIds: string[] = list.items || [];
           const itemsToFetch = itemIds.slice(0, 3);
 
-          // Fetch all preview items in parallel; all media lives in the "movies" collection
           const fetched = await Promise.all(
             itemsToFetch.map(async (mediaId) => {
               try {
@@ -66,7 +66,6 @@ const ListsTab = ({
                       mediaSnap.data().plakat || mediaSnap.data().poster_path,
                   };
                 }
-                // Firestore miss — fall back to TMDB
                 const isMovie = mediaId.startsWith("movie_");
                 const cleanId = mediaId
                   .replace("movie_", "")
@@ -105,6 +104,7 @@ const ListsTab = ({
     };
   }, [customLists]);
 
+  // Tworzenie nowej listy
   const handleCreateList = async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
@@ -121,7 +121,6 @@ const ListsTab = ({
     }
 
     try {
-      // NetCode: Sprawdzenie połączenia
       const netState = await NetInfo.fetch();
       if (!netState.isConnected) throw new Error("Brak połączenia");
 
@@ -155,6 +154,7 @@ const ListsTab = ({
     }
   };
 
+  // Renderowanie zgrupowanych plakatów w miniaturce listy.
   const renderStackedPosters = (previewItems: any[] = []) => {
     const itemsToRender = (previewItems || []).slice(0, 3);
     if (itemsToRender.length === 0) {
@@ -200,7 +200,6 @@ const ListsTab = ({
       <View style={styles.row}>
         <TouchableOpacity
           style={styles.listCard}
-          // Upewniono się, że routing bazuje TYLKO na parametrze creatorId (profilu który oglądamy)
           onPress={() =>
             router.push({ pathname: "/Watched", params: { userId: creatorId } })
           }

@@ -22,7 +22,10 @@ interface ReviewsTabProps {
   onDeleteReview?: (id: string) => void;
 }
 
-// Memoised card — only re-renders when its own review data changes
+// Karta recenzji.
+// Jeśli użytkownik, który jest zalogowany na urządzeniu, jest twórcą recenzji (na podstawie ID recenzji i Tokenu autoryzacji),
+// Przyciski edycji/usuwania recenzji wyświetlą się przy niej.
+// Zapobiega to możliwości edycji/usuwania przez osoby trzecie.
 const ReviewCard = memo(
   ({
     rev,
@@ -198,7 +201,6 @@ const ReviewsTab = ({
     return () => likeSub.remove();
   }, []);
 
-  // Stable callback — uses functional setState so it doesn't depend on reviewsList
   const handleLikePress = useCallback(
     async (reviewId: string, currentLikes: string[] = []) => {
       const currentUser = auth.currentUser?.uid;
@@ -245,7 +247,6 @@ const ReviewsTab = ({
     <FlatList
       data={reviewsList}
       keyExtractor={(rev) => rev.id ?? `fallback-${rev.userId}-${rev.ocena}`}
-      // Parent ScrollView handles scrolling; FlatList is used for its rendering optimisations
       scrollEnabled={false}
       initialNumToRender={5}
       maxToRenderPerBatch={5}

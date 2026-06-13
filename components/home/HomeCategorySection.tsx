@@ -16,6 +16,7 @@ interface HomeCategorySectionProps {
   data: any[];
 }
 
+// Sekcja kategorii
 const HomeCategorySection = ({
   title,
   categoryParam,
@@ -42,7 +43,6 @@ const HomeCategorySection = ({
 
       <FlatList
         data={data}
-        // Bardziej unikalny klucz zapobiegający problemom z renderowaniem list
         keyExtractor={(item, index) =>
           `${categoryParam}_${item.id || item.tmdb_id || index}`
         }
@@ -50,6 +50,8 @@ const HomeCategorySection = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContent}
         renderItem={({ item }) => (
+          // Przycisk przechowuje wszystkie informacje o produkcji (Tytuł, premiere, gatunki, tło, opis)
+          // Pozwala to na szybkie załadowania informacji o produkcji, nawet jeśli użytkownik straci połączenie.
           <TouchableOpacity
             style={globalStyles.filmBanner}
             onPress={() =>
@@ -88,7 +90,7 @@ const HomeCategorySection = ({
               }}
               style={globalStyles.filmImage}
               contentFit="cover"
-              transition={200} // Łagodne przejście przy ładowaniu obrazka
+              transition={200}
             />
           </TouchableOpacity>
         )}
@@ -97,7 +99,6 @@ const HomeCategorySection = ({
   );
 };
 
-// Zastosowanie memo, aby uniknąć zbędnego przeładowywania sekcji, gdy inne komponenty się zmieniają
 export default memo(HomeCategorySection);
 
 const styles = StyleSheet.create({

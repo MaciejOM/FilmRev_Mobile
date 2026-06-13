@@ -21,6 +21,9 @@ import { updateFirebaseReview } from "@/hooks/firebaseDatabase";
 // Tagi recenzji
 const AVAILABLE_TAGS = ["Bez spoilerów", "Pierwsze wrażenia"];
 
+// Przy edycji recenzji, dane z recenzji, która będzie edytowana, są pobierane w formie JSON,
+// a następnie formularz recenzji jest wypełniany tymi informacjami.
+// Po zatwierdzeniu edycji, dane recenzji są aktualizowane, oraz pojawia się napis "Edytowane" przy recenzji.
 export default function EditReview() {
   const router = useRouter();
 
@@ -40,6 +43,7 @@ export default function EditReview() {
     );
   }, []);
 
+  // Zatwierdzanie recenzji
   const handleSubmit = async () => {
     if (rating === 0) return Alert.alert("Błąd", "Zaznacz ocenę!");
     if (comment.trim() === "") return Alert.alert("Błąd", "Pusta treść!");
@@ -71,7 +75,6 @@ export default function EditReview() {
         selectedTags,
       );
 
-      // Aktualizacja przyrostowa. Usunięto refreshProfile!
       DeviceEventEmitter.emit("reviewEdited", {
         reviewId: reviewId,
         rating: rating,
@@ -91,6 +94,8 @@ export default function EditReview() {
     }
   };
 
+  // Jeśli użytkownik wprowadzi dane do recenzji i spróbuje wyjść bez zatwierdzania,
+  // Aplikacja wyświetli ostrzeżenie.
   const handleBackPress = useCallback(() => {
     const initialTagsArray = initialTags
       ? JSON.parse(initialTags as string)

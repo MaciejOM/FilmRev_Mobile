@@ -27,7 +27,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Tworzenie konta w Firebase Auth oraz inicjalizacja struktury profilu w Firestore
+  // Tworzenie konta
   const handleRegister = async () => {
     const cleanEmail = email.trim();
     const cleanUsername = username.trim();
@@ -41,17 +41,15 @@ export default function RegisterScreen() {
       return;
     }
 
-    // Blokada zapobiegająca tworzeniu duplikatów przy wielokrotnym kliknięciu
     setIsSubmitting(true);
 
     try {
-      // Sprawdzanie internetu
       const netState = await NetInfo.fetch();
       if (!netState.isConnected) {
         throw new Error("network-error");
       }
 
-      // Rejestracja i automatyczne zalogowanie użytkownika przez Firebase
+      // Rejestracja i automatyczne zalogowanie użytkownika
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         cleanEmail,
@@ -59,7 +57,6 @@ export default function RegisterScreen() {
       );
       const user = userCredential.user;
 
-      // Tworzenie dedykowanego dokumentu użytkownika w bazie z podstawowymi danymi
       await setDoc(doc(db, "users", user.uid), {
         nazwa_uzytkownika: cleanUsername.toLowerCase(),
         email: cleanEmail.toLowerCase(),
@@ -67,7 +64,7 @@ export default function RegisterScreen() {
         avatar: null,
       });
 
-      // Bezpośrednie przekierowanie do aplikacji (omijające ekran powrotny)
+      // Bezpośrednie przekierowanie do aplikacji
       Alert.alert(
         "Witaj w FilmRev!",
         "Twoje konto zostało pomyślnie utworzone.",
@@ -109,7 +106,6 @@ export default function RegisterScreen() {
         </TouchableOpacity>
         <Text style={globalStyles.headerText2}>Zarejestruj się</Text>
       </View>
-      {/* formularz rejestracji */}
       <View style={styles.container}>
         <TextInput
           style={styles.input}
@@ -177,7 +173,6 @@ export default function RegisterScreen() {
           onPress={handleRegister}
           disabled={isSubmitting}
         >
-          {/* Animacja ładowania chroniąca przed dublowaniem wysyłania formularza */}
           {isSubmitting ? (
             <ActivityIndicator color="white" />
           ) : (

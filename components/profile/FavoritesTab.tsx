@@ -14,7 +14,6 @@ const FavoritesTab = ({ data }: FavoritesTabProps) => {
   const { gridItemWidth } = useResponsive();
   const itemWidth = gridItemWidth(20, 12);
 
-  // Optymalizacja przeliczania list
   const { movies, tvShows } = useMemo(() => {
     if (!data) return { movies: [], tvShows: [] };
     return {
@@ -129,7 +128,6 @@ const FavoritesTab = ({ data }: FavoritesTabProps) => {
   );
 };
 
-// Zabezpieczenie przed re-renderami przy zmianach w innych miejscach Profilu
 export default memo(FavoritesTab);
 
 const styles = StyleSheet.create({
