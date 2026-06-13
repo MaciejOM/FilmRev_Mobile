@@ -20,7 +20,7 @@ interface FilmInfoSectionProps {
   genres: string;
   currentUser: string | null;
   isInFavourites: boolean;
-  isDataLoading: boolean; // <-- NOWA FLAGA BUFOROWANIA
+  isDataLoading: boolean;
   onToggleFavourite: () => void;
   onOpenListModal: () => void;
 }
@@ -64,13 +64,12 @@ const FilmInfoSection = ({
         </View>
       </ImageBackground>
 
-      {/* Paski akcji widoczne wyłącznie dla zalogowanych użytkowników */}
       {currentUser && (
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.actionButton, isDataLoading && { opacity: 0.7 }]}
             onPress={onOpenListModal}
-            disabled={isDataLoading} // Blokada kliknięcia w trakcie ładowania
+            disabled={isDataLoading}
           >
             {isDataLoading ? (
               <ActivityIndicator size="small" color="white" />
@@ -93,7 +92,7 @@ const FilmInfoSection = ({
               isDataLoading && { opacity: 0.7 },
             ]}
             onPress={onToggleFavourite}
-            disabled={isDataLoading} // Blokada kliknięcia w trakcie ładowania
+            disabled={isDataLoading}
           >
             {isDataLoading ? (
               <ActivityIndicator size="small" color="white" />

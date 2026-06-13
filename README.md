@@ -2,6 +2,11 @@
 
 Mobilna aplikacja do recenzowania filmów i seriali, zbudowana w **React Native + Expo**. Pozwala użytkownikom przeglądać popularne produkcje z bazy TMDB, wystawiać recenzje, zarządzać listami oglądania oraz tworzyć własne listy tytułów.
 
+<img src="images/Screenshot_20260613-130036_Expo Go.png" width=240px>
+<img src="images/Screenshot_20260613-130100_Expo Go.png" width=240px>
+<img src="images/Screenshot_20260613-130124_Expo Go.png" width=240px>
+<img src="images/Screenshot_20260613-130147_Expo Go.png" width=240px>
+
 ---
 
 ## Funkcje
@@ -34,7 +39,6 @@ Mobilna aplikacja do recenzowania filmów i seriali, zbudowana w **React Native 
 ### 5. Logowanie i rejestracja
 
 - Zarejestruj nowe konto.
-- Logowanie standardowe lub za pomocą konta Google.
 - Możliwość resetu hasła, jeśli zapomniałeś/aś.
 
 ---
@@ -96,10 +100,6 @@ EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID="TWÓJ_MEASUREMENT_ID"
 
 # TMDB
 EXPO_PUBLIC_TMDB_API_KEY="TWÓJ_KLUCZ_TMDB"
-
-# Google Sign-In (OAuth 2.0)
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID="TWÓJ_WEB_CLIENT_ID"
-EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID="TWÓJ_ANDROID_CLIENT_ID"
 ```
 
 > Zmienne zaczynające się od `EXPO_PUBLIC_` są widoczne po stronie klienta. Nie commituj pliku `.env` do repozytorium.
@@ -110,7 +110,7 @@ EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID="TWÓJ_ANDROID_CLIENT_ID"
 npx expo start
 ```
 
-Zeskanuj kod QR aplikacją **Expo Go** na telefonie lub naciśnij `a`, aby uruchomić na emulatorze Android.
+Zeskanuj kod QR aplikacją **Expo Go** na telefonie lub uruchom go w emulatorze.
 
 ---
 

@@ -7,13 +7,13 @@ import { router } from "expo-router";
 import { addDoc, collection, doc, getDoc } from "firebase/firestore";
 import React, { memo, useEffect, useState } from "react";
 import {
-    Alert,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface ListsTabProps {
@@ -54,7 +54,6 @@ const ListsTab = ({
           const itemIds: string[] = list.items || [];
           const itemsToFetch = itemIds.slice(0, 3);
 
-          // Fetch all preview items in parallel; all media lives in the "movies" collection
           const fetched = await Promise.all(
             itemsToFetch.map(async (mediaId) => {
               try {
@@ -66,7 +65,6 @@ const ListsTab = ({
                       mediaSnap.data().plakat || mediaSnap.data().poster_path,
                   };
                 }
-                // Firestore miss — fall back to TMDB
                 const isMovie = mediaId.startsWith("movie_");
                 const cleanId = mediaId
                   .replace("movie_", "")
@@ -121,7 +119,6 @@ const ListsTab = ({
     }
 
     try {
-      // NetCode: Sprawdzenie połączenia
       const netState = await NetInfo.fetch();
       if (!netState.isConnected) throw new Error("Brak połączenia");
 
@@ -200,7 +197,6 @@ const ListsTab = ({
       <View style={styles.row}>
         <TouchableOpacity
           style={styles.listCard}
-          // Upewniono się, że routing bazuje TYLKO na parametrze creatorId (profilu który oglądamy)
           onPress={() =>
             router.push({ pathname: "/Watched", params: { userId: creatorId } })
           }

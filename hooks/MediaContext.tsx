@@ -14,7 +14,7 @@ import {
   syncMediaToFirestore,
 } from "./firebaseDatabase";
 
-// Definicje stałych mapowania gatunków
+// Definicje stałych gatunków
 const MOVIE_GENRES: Record<number, string> = {
   28: "Akcja",
   12: "Przygodowy",
@@ -60,7 +60,7 @@ interface MediaContextType {
   Tv: any[];
   isLoading: boolean;
   error: string | null;
-  refreshMedia: () => Promise<void>; // Ta funkcja posłuży jako opcja "retry" dla UI
+  refreshMedia: () => Promise<void>;
 }
 
 const MediaContext = createContext<MediaContextType | undefined>(undefined);
@@ -75,30 +75,43 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    const netState = await NetInfo.fetch();
-
-    // 1. Obsługa trybu OFFLINE (wymóg z punktu 12)
-    if (!netState.isConnected) {
-      /* BEZPIECZEŃSTWO (Wytyczna 14): 
-        Używamy AsyncStorage wyłącznie do niefrażliwego cache'u (publiczna lista filmów). 
-        Dane wrażliwe są bezpieczne w expo-secure-store (AuthContext). 
-      */
-      const offlineMovies = await AsyncStorage.getItem("offline_movies");
-      const offlineTv = await AsyncStorage.getItem("offline_tv");
+  // Szybkie wczytanie danych z pamięci podręcznej (AsyncStorage). Pozwala pokazać
+  // ekran główny natychmiast, zanim dojdzie odpowiedź z sieci (stale-while-revalidate).
+  const hydrateFromCache = useCallback(async () => {
+    try {
+      const [offlineMovies, offlineTv] = await Promise.all([
+        AsyncStorage.getItem("offline_movies"),
+        AsyncStorage.getItem("offline_tv"),
+      ]);
       if (offlineMovies) setFilm(JSON.parse(offlineMovies));
       if (offlineTv) setTv(JSON.parse(offlineTv));
-      setError("Brak połączenia z siecią. Dane wczytane z pamięci podręcznej.");
+      return Boolean(offlineMovies || offlineTv);
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const loadData = useCallback(async () => {
+    // 1. Najpierw cache — jeśli mamy dane, ekran pojawia się od razu, a sieć
+    //    odświeży je w tle (bez ponownego pokazywania spinnera).
+    const hadCache = await hydrateFromCache();
+    setIsLoading(!hadCache);
+
+    const netState = await NetInfo.fetch();
+
+    if (!netState.isConnected) {
+      setError(
+        hadCache
+          ? "Brak połączenia z siecią. Dane wczytane z pamięci podręcznej."
+          : "Brak połączenia z siecią. Sprawdź internet.",
+      );
       setIsLoading(false);
       return;
     }
 
     try {
-      // Pobieranie zmiennych ze środowiska - ukryte klucze API (wymóg z punktu 14)
       const tmdbKey = process.env.EXPO_PUBLIC_TMDB_API_KEY;
 
-      // Pobieranie danych z TMDB tylko raz na sesję aplikacji (Optymalizacja)
       if (!hasSyncedInitial) {
         hasSyncedInitial = true;
 
@@ -114,13 +127,18 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
         const movieData = await movieRes.json();
         const tvData = await tvRes.json();
 
-        if (movieData.results)
-          await syncMediaToFirestore(movieData.results, "movie", MOVIE_GENRES);
-        if (tvData.results)
-          await syncMediaToFirestore(tvData.results, "tv", TV_GENRES);
+        // Obie synchronizacje równolegle zamiast jedna po drugiej.
+        await Promise.all([
+          movieData.results
+            ? syncMediaToFirestore(movieData.results, "movie", MOVIE_GENRES)
+            : Promise.resolve(),
+          tvData.results
+            ? syncMediaToFirestore(tvData.results, "tv", TV_GENRES)
+            : Promise.resolve(),
+        ]);
       }
 
-      // Pobieranie zunifikowanych danych z Firestore (ze świeżymi ocenami)
+      // Pobieranie zunifikowanych danych z Firestore
       const [fbMovies, fbTv] = await Promise.all([
         getMediaFromFirestore("movie"),
         getMediaFromFirestore("tv"),
@@ -150,38 +168,35 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
         type: "tv",
       }));
 
-      // Zapis do pamięci offline publicznych danych (AsyncStorage)
-      await AsyncStorage.setItem(
-        "offline_movies",
-        JSON.stringify(mappedMovies),
-      );
-      await AsyncStorage.setItem("offline_tv", JSON.stringify(mappedTv));
-
+      // Najpierw pokazujemy świeże dane, a zapis do cache robimy w tle (nie blokuje UI).
       setFilm(mappedMovies);
       setTv(mappedTv);
       setError(null);
+
+      Promise.all([
+        AsyncStorage.setItem("offline_movies", JSON.stringify(mappedMovies)),
+        AsyncStorage.setItem("offline_tv", JSON.stringify(mappedTv)),
+      ]).catch(() => {});
     } catch (err) {
       console.error("Błąd ładowania danych globalnych:", err);
-      setError("Wystąpił problem z pobieraniem danych z serwera.");
+      // Mając dane z cache nie psujemy ekranu pełnoekranowym błędem — pokazujemy stare dane.
+      if (!hadCache) {
+        setError("Wystąpił problem z pobieraniem danych z serwera.");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [hydrateFromCache]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Synchronizacja średniej oceny w czasie rzeczywistym po dodaniu, edycji lub
-  // usunięciu recenzji. firebaseDatabase emituje "movieRatingUpdated" po przeliczeniu
-  // oceny w Firestore — tutaj nanosimy zmianę na dane trzymane w pamięci, dzięki czemu
-  // ekran główny ("Najlepiej oceniane") oraz wyszukiwarka od razu pokazują aktualną ocenę.
   useEffect(() => {
     const ratingSub = DeviceEventEmitter.addListener(
       "movieRatingUpdated",
       ({ movieId, newAverage }: { movieId: string; newAverage: number }) => {
         const isMovie = movieId.startsWith("movie_");
-        // documentId ma postać "movie_123" / "tv_456", a w pamięci item.id == tmdb_id (number)
         const tmdbId = Number(movieId.replace("movie_", "").replace("tv_", ""));
 
         const patchList = (list: any[]) =>
@@ -197,7 +212,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => ratingSub.remove();
   }, []);
 
-  // Optymalizacja wydajności: zapobiega niepotrzebnym re-renderom komponentów konsumujących
   const value = useMemo(
     () => ({ film, Tv, isLoading, error, refreshMedia: loadData }),
     [film, Tv, isLoading, error, loadData],

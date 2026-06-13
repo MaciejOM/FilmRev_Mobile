@@ -266,10 +266,7 @@ export default function SettingsScreen() {
         error.code === "auth/wrong-password" ||
         error.code === "auth/invalid-credential"
       ) {
-        Alert.alert(
-          "Niepoprawne hasło",
-          "Podane hasło jest błędne. Jeśli logowałeś się przez Google, musisz usunąć dostęp przez panel konta Google.",
-        );
+        Alert.alert("Niepoprawne hasło", "Podane hasło jest błędne.");
       } else {
         Alert.alert(
           "Błąd",

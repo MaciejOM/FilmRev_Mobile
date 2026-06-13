@@ -42,7 +42,6 @@ const HomeCategorySection = ({
 
       <FlatList
         data={data}
-        // Bardziej unikalny klucz zapobiegający problemom z renderowaniem list
         keyExtractor={(item, index) =>
           `${categoryParam}_${item.id || item.tmdb_id || index}`
         }
@@ -88,7 +87,7 @@ const HomeCategorySection = ({
               }}
               style={globalStyles.filmImage}
               contentFit="cover"
-              transition={200} // Łagodne przejście przy ładowaniu obrazka
+              transition={200}
             />
           </TouchableOpacity>
         )}
@@ -97,7 +96,6 @@ const HomeCategorySection = ({
   );
 };
 
-// Zastosowanie memo, aby uniknąć zbędnego przeładowywania sekcji, gdy inne komponenty się zmieniają
 export default memo(HomeCategorySection);
 
 const styles = StyleSheet.create({

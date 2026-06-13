@@ -7,10 +7,8 @@ import React from "react";
 import { ActivityIndicator, View } from "react-native";
 
 export default function TabLayout() {
-  // Wyciągamy stan bezpośrednio z centralnego monitoringu
   const { isLogged, isLoading } = useAuth();
 
-  // Zabezpieczenie: dopóki aplikacja sprawdza token w SecureStore, pokazujemy loader
   if (isLoading) {
     return (
       <View
@@ -62,10 +60,9 @@ export default function TabLayout() {
         name="account"
         options={{
           title: "",
-          // Dynamiczne chowanie zakładki - rekomendowane przez Expo Router
           href: isLogged ? null : "/account",
           tabBarIcon: ({ color }) => (
-            <MaterialIcons size={30} name="account-circle" color={color} />
+            <MaterialIcons size={30} name="person" color={color} />
           ),
         }}
       />
@@ -74,7 +71,6 @@ export default function TabLayout() {
         name="Profile"
         options={{
           title: "",
-          // Dynamiczne chowanie zakładki
           href: isLogged ? "/Profile" : null,
           tabBarIcon: ({ color }) => (
             <MaterialIcons size={30} name="person" color={color} />
