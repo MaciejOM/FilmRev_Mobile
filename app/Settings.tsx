@@ -253,7 +253,17 @@ export default function SettingsScreen() {
       );
       await Promise.all(updateRatingPromises);
 
-      // 5. Ostateczne skasowanie profilu
+      // 5. Usuwanie wszystkich niestandardowych list powiązanych z kontem
+      const customListsRef = collection(db, "custom_lists");
+      const listsQuery = query(customListsRef, where("userId", "==", user.uid));
+      const listsSnapshot = await getDocs(listsQuery);
+
+      const deleteListPromises = listsSnapshot.docs.map((listDoc) =>
+        deleteDoc(listDoc.ref),
+      );
+      await Promise.all(deleteListPromises);
+
+      // 6. Ostateczne skasowanie profilu
       await deleteDoc(doc(db, "users", user.uid));
       await deleteUser(user);
 
