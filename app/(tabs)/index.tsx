@@ -15,7 +15,8 @@ import HomeCategorySection from "@/components/home/HomeCategorySection";
 export default function Index() {
   const { film, Tv, isLoading, error, refreshMedia } = useGlobalMedia();
 
-  // Kategorie
+  // Budowanie sekcji ekranu głównego (Najnowsze filmy/seriale, Najlepiej oceniane).
+  // useMemo przelicza je tylko gdy zmienią się dane (film/Tv), a nie przy każdym renderze.
   const sections = useMemo(() => {
     if (!film || !Tv) return [];
 

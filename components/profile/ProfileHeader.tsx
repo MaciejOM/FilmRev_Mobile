@@ -27,7 +27,8 @@ interface ProfileHeaderProps {
 
 // Nagłówek profilu
 // Wyświetlane informacje: zdjęcie profilowe, opis, liczba recenzji, data dołączenia.
-// Limit znaków w opisie: 128 (przy mnie niż 30 pozostałych znakach wyświetla się limit)
+// Limit znaków w opisie: 128 (przy mniej niż 30 pozostałych znakach wyświetla się licznik)
+// Prop isReadOnly przełącza między profilem własnym (z edycją) a cudzym (tylko podgląd),
 const ProfileHeader = ({
   user,
   reviewCount,

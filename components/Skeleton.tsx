@@ -8,6 +8,8 @@ interface SkeletonProps {
   style?: ViewStyle | ViewStyle[];
 }
 
+// Pulsujący szary placeholder pokazywany podczas ładowania danych.
+// Pokazuje kształt nadchodzącej treści, dzięki czemu czas ładowania wydaje się krótszy niż przy spinnerze.
 export default function Skeleton({
   width,
   height,

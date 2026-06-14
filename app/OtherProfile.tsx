@@ -30,8 +30,8 @@ import ProfileHeader from "@/components/profile/ProfileHeader";
 import ProfileTabs, { TabType } from "@/components/profile/ProfileTabs";
 import ReviewsTab from "@/components/profile/ReviewsTab";
 
-// Profil innego użytkownika
-// Tu
+// Profil innego użytkownika (podgląd, wejście z autora recenzji).
+// Używa tych samych komponentów co profil własny, ale w trybie tylko do odczytu (isReadOnly),
 export default function OtherProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
 

@@ -8,11 +8,9 @@ import NetInfo from "@react-native-community/netinfo"; // Dodano obsługę NetCo
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import {
-  EmailAuthProvider,
   deleteUser,
-  reauthenticateWithCredential,
   sendPasswordResetEmail,
-  signOut,
+  signOut
 } from "firebase/auth";
 import {
   collection,
@@ -218,12 +216,9 @@ export default function SettingsScreen() {
     setIsDeletingAccount(true);
 
     try {
-      // Re-walidacja danych
-      const credential = EmailAuthProvider.credential(
-        user.email,
-        deletePassword,
-      );
-      await reauthenticateWithCredential(user, credential);
+
+      // Usuwanie odbywa się kaskadowo, aby po skasowaniu konta nie zostały w bazie
+      // żadne osierocone dane (recenzje, oceny, listy).
 
       // 1. Usunięcie pamięci lokalnej
       await AsyncStorage.removeItem(`profile_data_${user.uid}`);

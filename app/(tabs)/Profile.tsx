@@ -131,7 +131,7 @@ export default function ProfileScreen() {
     }
   };
 
-  // Załadowanie danych użytkowika 
+  // Załadowanie danych użytkowika
   const loadUserData = useCallback(async () => {
     try {
       const currentUser = auth.currentUser;

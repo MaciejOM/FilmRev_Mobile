@@ -23,8 +23,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLogged, setIsLogged] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Centralny nasłuchiwacz sesji Firebase. Reaguje automatycznie na zalogowanie,
+  // wylogowanie i odświeżenie tokenu, dzięki czemu cała aplikacja zawsze zna aktualny
+  // stan logowania bez ręcznego przekazywania go między ekranami.
   useEffect(() => {
-    // Centralny nasłuchiwacz sesji Firebase (zarządza tokenem ze SecureStore pod spodem)
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
@@ -38,16 +40,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsLoading(false);
       },
       (error) => {
-        // Zabezpieczenie przed zawieszeniem aplikacji w stanie ładowania w razie błędu autoryzacji
         console.error("Błąd podczas nasłuchiwania stanu autoryzacji:", error);
         setIsLoading(false);
       },
     );
 
+    // Funkcja zwracana z useEffect odpina nasłuchiwacz przy odmontowaniu (sprzątanie).
     return unsubscribe;
   }, []);
 
-  // Optymalizacja: zapobiega niepotrzebnym renderowaniom komponentów podrzędnych
+  // useMemo daje stabilną referencję obiektu kontekstu, dopóki dane się nie zmienią,
+  // co zapobiega niepotrzebnym re-renderom wszystkich komponentów czytających ten kontekst.
   const value = useMemo(
     () => ({ user, isLogged, isLoading }),
     [user, isLogged, isLoading],

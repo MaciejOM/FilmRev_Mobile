@@ -25,6 +25,8 @@ interface ListsTabProps {
   onRefresh?: () => void;
 }
 
+// Zakładka "Listy" na profilu: karty list stałych (Obejrzane/Do obejrzenia),
+// listy niestandardowe oraz przycisk tworzenia nowej (z limitem 10).
 const ListsTab = ({
   customLists,
   isReadOnly = false,
@@ -41,7 +43,6 @@ const ListsTab = ({
   useEffect(() => {
     let isMounted = true;
 
-    // Pobieranie podglądów list
     const fetchPreviews = async () => {
       if (!customLists || customLists.length === 0) {
         if (isMounted) setEnrichedLists([]);

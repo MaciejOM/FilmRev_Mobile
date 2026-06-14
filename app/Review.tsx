@@ -20,6 +20,7 @@ import { auth, db } from "@/hooks/firebaseConfig";
 import { addFirebaseReview } from "@/hooks/firebaseDatabase";
 import { doc, getDoc } from "firebase/firestore";
 
+// Tagi recenzji
 const AVAILABLE_TAGS = ["Bez spoilerów", "Pierwsze wrażenia"];
 
 export default function ReviewEditor() {
@@ -60,7 +61,7 @@ export default function ReviewEditor() {
     );
   }, []);
 
-  // Zatwierdzenie recenzji (Walidacja danych i połączenia)
+  // Zatwierdzenie recenzji
   const handleSubmit = async () => {
     const userAuth = auth.currentUser;
     if (!userAuth) return Alert.alert("Błąd", "Musisz być zalogowany.");

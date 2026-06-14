@@ -9,6 +9,8 @@ interface ProfileTabsProps {
   onTabChange: (tab: TabType) => void;
 }
 
+// Pasek zakładek profilu (Ulubione / Recenzje / Listy).
+// Aktywną zakładkę trzyma ekran nadrzędny, a tutaj tylko ją wyświetlamy i zgłaszamy kliknięcie.
 const ProfileTabs = ({ activeTab, onTabChange }: ProfileTabsProps) => {
   return (
     <View style={styles.container}>

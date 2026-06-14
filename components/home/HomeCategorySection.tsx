@@ -16,7 +16,7 @@ interface HomeCategorySectionProps {
   data: any[];
 }
 
-// Sekcja kategorii
+// Sekcja kategorii — jeden poziomy, przewijany rząd plakatów na ekranie głównym.
 const HomeCategorySection = ({
   title,
   categoryParam,

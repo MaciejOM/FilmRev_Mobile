@@ -10,6 +10,7 @@ interface FilmReviewsSectionProps {
   onAddReviewPress: () => void;
 }
 
+// Nagłówek sekcji recenzji: przycisk dodawania, tytuł i średnia ocena z liczbą opinii.
 const FilmReviewsSection = ({
   currentUser,
   totalReviews,

@@ -18,7 +18,8 @@ import {
 } from "firebase/firestore";
 import { DeviceEventEmitter } from "react-native";
 
-// Sprawdzanie połącznie z siecią
+// Sprawdzanie połączenia z siecią przed każdą operacją na bazie.
+// Pozwala to od razu zgłosić brak internetu, zamiast czekać na timeout Firestore.
 const ensureNetworkConnection = async () => {
   const state = await NetInfo.fetch();
   if (!state.isConnected) {
@@ -233,6 +234,8 @@ export const updateMovieAverageRating = async (movieId: string) => {
       vote_average: newAverage,
     });
 
+    // Powiadamiamy resztę aplikacji (MediaContext) o nowej ocenie, aby ekran główny
+    // i wyszukiwarka zaktualizowały ją natychmiast, bez ponownego pobierania całej listy.
     DeviceEventEmitter.emit("movieRatingUpdated", { movieId, newAverage });
 
     console.log(
@@ -396,6 +399,8 @@ export const getCustomListDetails = async (listId: string) => {
       return { ...listData, id: listSnap.id, movies: [], tv: [] };
     }
 
+    // Dla każdego elementu listy próbujemy pobrać dane z Firestore, a gdy go tam brak,
+    // sięgamy bezpośrednio do TMDB jako zapas.
     const mediaPromises = listData.items.map(async (mediaId: string) => {
       const isMovie = mediaId.startsWith("movie_");
       const collectionName = isMovie ? "movie" : "tv";

@@ -25,6 +25,7 @@ interface FilmInfoSectionProps {
   onOpenListModal: () => void;
 }
 
+// Górna sekcja ekranu szczegółów: tło, tytuł, gatunki, przyciski list i opis fabuły.
 const FilmInfoSection = ({
   title,
   backdrop,
@@ -49,6 +50,7 @@ const FilmInfoSection = ({
         style={[styles.backdrop, { height: backdropHeight }]}
         resizeMode="cover"
       >
+
         <LinearGradient
           colors={[
             "transparent",

@@ -296,7 +296,9 @@ export default function FilmDetail() {
     }
   };
 
-  // Dodanie do ulubionych
+  // Polubienie recenzji: przy polubieniu najpierw UI jest aktualizowane,
+  // a tle informacja jest wysyłana do bazy, co zapewnia natychmiastową reakcję na interakcje użytkownika.
+  // W przypadku braku sieci, polubienie jest cofane (Przywraca poprzedni stan).
   const handleToggleFavourite = async () => {
     if (!currentUser) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

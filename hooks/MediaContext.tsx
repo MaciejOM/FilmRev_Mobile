@@ -65,6 +65,9 @@ interface MediaContextType {
 
 const MediaContext = createContext<MediaContextType | undefined>(undefined);
 
+// Flaga zmiennej modułowej pilnuje, aby synchronizacja z TMDB wykonała się
+// tylko raz na uruchomienie aplikacji, a nie przy każdym wejściu na ekran główny.
+// Eliminuje to niepotrzebne i powtarzalne zawołania do API.
 let hasSyncedInitial = false;
 
 export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -75,6 +78,8 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Szybkie wczytanie danych z pamięci podręcznej (AsyncStorage).
+  // Pozwala to natychmiastowo pokazać ekran główny, zanim dojdzie odpowiedź z sieci.
   const hydrateFromCache = useCallback(async () => {
     try {
       const [offlineMovies, offlineTv] = await Promise.all([
@@ -89,6 +94,8 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  // Główna funkcja ładująca dane. Najpierw pokazuje dane z cache (jeśli są),
+  // a następnie odświeża je w tle ze świeżych danych.
   const loadData = useCallback(async () => {
     const hadCache = await hydrateFromCache();
     setIsLoading(!hadCache);
@@ -108,6 +115,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const tmdbKey = process.env.EXPO_PUBLIC_TMDB_API_KEY;
 
+      // Pobieramy popularne tytuły z TMDB i zapisujemy je do Firestore tylko raz na sesję.
       if (!hasSyncedInitial) {
         hasSyncedInitial = true;
 
@@ -166,6 +174,8 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
       setTv(mappedTv);
       setError(null);
 
+      // Zapis do cache robimy w tle, aby nie opóźniać wyświetlenia danych.
+      // Dzięki temu przy kolejnym uruchomieniu aplikacja ma co pokazać od razu.
       Promise.all([
         AsyncStorage.setItem("offline_movies", JSON.stringify(mappedMovies)),
         AsyncStorage.setItem("offline_tv", JSON.stringify(mappedTv)),
@@ -184,6 +194,9 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({
     loadData();
   }, [loadData]);
 
+  // Nasłuchujemy zmiany średniej oceny wysyłanej po dodaniu/edycji/usunięciu recenzji.
+  // Aktualizujemy wtedy tylko jeden tytuł w pamięci, zamiast pobierać całą listę od nowa,
+  // dzięki czemu ekran główny i wyszukiwarka od razu pokazują aktualną ocenę.
   useEffect(() => {
     const ratingSub = DeviceEventEmitter.addListener(
       "movieRatingUpdated",

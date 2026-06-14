@@ -9,6 +9,7 @@ interface FavoritesTabProps {
   data: any[];
 }
 
+// Zakładka "Ulubione" na profilu: siatka tytułów z przełącznikiem Filmy/Seriale.
 const FavoritesTab = ({ data }: FavoritesTabProps) => {
   const [activeTab, setActiveTab] = useState<"movie" | "tv">("movie");
   const { gridItemWidth } = useResponsive();

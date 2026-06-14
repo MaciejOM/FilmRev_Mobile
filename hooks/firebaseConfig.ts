@@ -6,7 +6,8 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
 
-// Funkcja czyszcząca klucze: zamienia wszystkie znaki poza dozwolonymi na podkreślnik
+// SecureStore akceptuje tylko określone znaki w kluczach, dlatego zamieniamy
+// wszystkie niedozwolone znaki na podkreślnik, aby uniknąć błędów zapisu tokenu.
 const secureKey = (key: string) => {
   return key.replace(/[^a-zA-Z0-9.\-_]/g, "_");
 };
@@ -22,16 +23,17 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-
 export const db = getFirestore(app, "filmrev");
 
+// Na webie używamy domyślnej trwałości przeglądarki, bo SecureStore tam nie istnieje,
+// a getReactNativePersistence nie jest eksportowane z webowej wersji firebase/auth.
 let auth: Auth;
 
 if (Platform.OS === "web") {
   auth = getAuth(app);
 } else {
-  // getReactNativePersistence istnieje tylko w buildzie React Native firebase/auth,
-  // dlatego ładujemy je dynamicznie (web/TypeScript nie znają tego eksportu).
+  // Na telefonie token logowania trzymamy w SecureStore (szyfrowana pamięć urządzenia),
+  // dzięki czemu użytkownik pozostaje zalogowany między uruchomieniami aż do wylogowania.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { getReactNativePersistence } = require("firebase/auth");
   auth = initializeAuth(app, {
